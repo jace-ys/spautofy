@@ -1,0 +1,6 @@
+# misc
+.env
+
+# compiled binaries
+spautofy
+!spautofy/
