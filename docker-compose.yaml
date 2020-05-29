@@ -6,6 +6,7 @@ services:
     image: spautofy:latest
     ports:
       - 8080:8080
+    env_file: ./.env
     environment:
       PORT: 8080
       POSTGRES_DB: spautofy

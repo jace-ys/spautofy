@@ -25,7 +25,7 @@ func main() {
 		exit(err)
 	}
 
-	handler := spautofy.NewHandler(logger, postgresClient)
+	handler := spautofy.NewHandler(logger, c.spautofy.ClientID, c.spautofy.Secret, postgresClient)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -55,6 +55,7 @@ func main() {
 
 type config struct {
 	port     int
+	spautofy spautofy.Config
 	database postgres.ClientConfig
 }
 
@@ -62,6 +63,8 @@ func parseCommand() *config {
 	var c config
 
 	kingpin.Flag("port", "Port for the Spautofy server.").Envar("PORT").Default("8080").IntVar(&c.port)
+	kingpin.Flag("spotify-client", "Spotify client ID.").Envar("SPOTIFY_CLIENT_ID").Required().StringVar(&c.spautofy.ClientID)
+	kingpin.Flag("spotify-secret", "Spotify client secret.").Envar("SPOTIFY_CLIENT_SECRET").Required().StringVar(&c.spautofy.Secret)
 	kingpin.Flag("postgres-host", "Host for connecting to Postgres.").Envar("POSTGRES_HOST").Default("127.0.0.1:5432").StringVar(&c.database.Host)
 	kingpin.Flag("postgres-user", "User for connecting to Postgres.").Envar("POSTGRES_USER").Default("postgres").StringVar(&c.database.User)
 	kingpin.Flag("postgres-password", "Password for connecting to Postgres.").Envar("POSTGRES_PASSWORD").Required().StringVar(&c.database.Password)

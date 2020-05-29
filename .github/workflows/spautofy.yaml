@@ -16,6 +16,8 @@ jobs:
           key: ${{ runner.os }}-spautofy-${{ hashFiles('go.sum') }}
           restore-keys: |
             ${{ runner.os }}-spautofy
+      - name: Inject environment
+        run: touch .env
       - name: Install dependencies
         run: go mod download
       - name: Lint

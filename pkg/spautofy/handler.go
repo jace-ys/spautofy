@@ -11,23 +11,34 @@ import (
 	"github.com/jace-ys/go-library/postgres"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/robfig/cron/v3"
+	"github.com/zmb3/spotify"
 
 	"github.com/jace-ys/spautofy/pkg/user"
 )
 
-type Handler struct {
-	logger log.Logger
-	server *http.Server
-	runner *cron.Cron
-	users  *user.Registry
+type Config struct {
+	ClientID string
+	Secret   string
 }
 
-func NewHandler(logger log.Logger, postgres *postgres.Client) *Handler {
+type Handler struct {
+	logger        log.Logger
+	server        *http.Server
+	runner        *cron.Cron
+	users         *user.Registry
+	authenticator *spotify.Authenticator
+}
+
+func NewHandler(logger log.Logger, clientID, secret string, postgres *postgres.Client) *Handler {
+	authenticator := spotify.NewAuthenticator(redirectURL, scopes...)
+	authenticator.SetAuthInfo(clientID, secret)
+
 	handler := &Handler{
-		logger: logger,
-		server: &http.Server{},
-		runner: cron.New(),
-		users:  user.NewRegistry(postgres),
+		logger:        logger,
+		server:        &http.Server{},
+		runner:        cron.New(),
+		users:         user.NewRegistry(postgres),
+		authenticator: &authenticator,
 	}
 	handler.server.Handler = handler.router()
 	return handler
@@ -35,8 +46,13 @@ func NewHandler(logger log.Logger, postgres *postgres.Client) *Handler {
 
 func (h *Handler) router() http.Handler {
 	router := mux.NewRouter()
+
 	v1 := router.PathPrefix("/api/v1").Subrouter()
 	v1.Handle("/health", promhttp.Handler()).Methods(http.MethodGet)
+
+	v1login := v1.PathPrefix("/login").Subrouter()
+	v1login.HandleFunc("", h.loginRedirect).Methods(http.MethodGet)
+	v1login.HandleFunc("/callback", h.loginCallback).Methods(http.MethodGet)
 
 	v1.HandleFunc("/entries", h.listEntries).Methods(http.MethodGet)
 

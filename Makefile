@@ -1,3 +1,5 @@
+include .env
+
 TARGET = spautofy
 SOURCE = cmd/spautofy/main.go
 DEPENDENCIES = postgres postgres.init
@@ -14,6 +16,8 @@ run:
 	@echo "==> Executing code.."
 	@go run ${SOURCE} \
 		--port 8080 \
+		--spotify-client ${SPOTIFY_CLIENT_ID} \
+		--spotify-secret ${SPOTIFY_CLIENT_SECRET} \
 		--postgres-host 127.0.0.1:5432 \
 		--postgres-user spautofy \
 		--postgres-password spautofy \
