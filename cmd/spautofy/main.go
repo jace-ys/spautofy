@@ -31,8 +31,12 @@ func main() {
 	defer cancel()
 
 	g, ctx := errgroup.WithContext(ctx)
+
 	g.Go(func() error {
 		return handler.StartServer(c.port)
+	})
+	g.Go(func() error {
+		return handler.StartRunner()
 	})
 	g.Go(func() error {
 		select {

@@ -2,6 +2,7 @@ package spautofy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jace-ys/go-library/postgres"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/robfig/cron/v3"
 
 	"github.com/jace-ys/spautofy/pkg/user"
 )
@@ -16,6 +18,7 @@ import (
 type Handler struct {
 	logger log.Logger
 	server *http.Server
+	runner *cron.Cron
 	users  *user.Registry
 }
 
@@ -23,6 +26,7 @@ func NewHandler(logger log.Logger, postgres *postgres.Client) *Handler {
 	handler := &Handler{
 		logger: logger,
 		server: &http.Server{},
+		runner: cron.New(),
 		users:  user.NewRegistry(postgres),
 	}
 	handler.server.Handler = handler.router()
@@ -34,16 +38,28 @@ func (h *Handler) router() http.Handler {
 	v1 := router.PathPrefix("/api/v1").Subrouter()
 	v1.Handle("/health", promhttp.Handler()).Methods(http.MethodGet)
 
+	v1.HandleFunc("/entries", h.listEntries).Methods(http.MethodGet)
+
 	return router
 }
 
 func (h *Handler) StartServer(port int) error {
 	h.logger.Log("event", "server.started", "port", port)
 	defer h.logger.Log("event", "server.stopped")
+
 	h.server.Addr = fmt.Sprintf(":%d", port)
 	if err := h.server.ListenAndServe(); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
+
+	return nil
+}
+
+func (h *Handler) StartRunner() error {
+	h.logger.Log("event", "runner.started")
+	defer h.logger.Log("event", "runner.stopped")
+
+	h.runner.Run()
 	return nil
 }
 
@@ -52,4 +68,32 @@ func (h *Handler) Shutdown(ctx context.Context) error {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 	return nil
+}
+
+type httpError struct {
+	Error struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+func (h *Handler) sendJSON(w http.ResponseWriter, status int, v interface{}) {
+	if err, ok := v.(error); ok {
+		var httpErr httpError
+		httpErr.Error.Status = status
+		httpErr.Error.Message = err.Error()
+		v = httpErr
+	}
+
+	response, err := json.Marshal(v)
+	if err != nil {
+		h.logger.Log("event", "response.encoded", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Spautofy is currently unavailable. Please try again later."))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	w.Write([]byte(response))
 }
