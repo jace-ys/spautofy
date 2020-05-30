@@ -7,10 +7,10 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-func (h *Handler) listEntries(w http.ResponseWriter, r *http.Request) {
-	entries := make([]interface{}, len(h.runner.Entries()))
+func (h *Handler) listSchedules(w http.ResponseWriter, r *http.Request) {
+	schedules := make([]interface{}, len(h.runner.Entries()))
 	for i, e := range h.runner.Entries() {
-		entries[i] = struct {
+		schedules[i] = struct {
 			ID   cron.EntryID `json:"id"`
 			Next time.Time    `json:"next"`
 			Prev time.Time    `json:"prev"`
@@ -21,5 +21,5 @@ func (h *Handler) listEntries(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.sendJSON(w, http.StatusOK, entries)
+	h.sendJSON(w, http.StatusOK, schedules)
 }

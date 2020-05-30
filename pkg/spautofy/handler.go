@@ -9,7 +9,6 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 	"github.com/jace-ys/go-library/postgres"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/robfig/cron/v3"
 	"github.com/zmb3/spotify"
 
@@ -17,8 +16,9 @@ import (
 )
 
 type Config struct {
-	ClientID string
-	Secret   string
+	ClientID     string
+	Secret       string
+	RedirectHost string
 }
 
 type Handler struct {
@@ -29,9 +29,10 @@ type Handler struct {
 	authenticator *spotify.Authenticator
 }
 
-func NewHandler(logger log.Logger, clientID, secret string, postgres *postgres.Client) *Handler {
+func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Handler {
+	redirectURL := fmt.Sprintf("http://%s/login/callback", cfg.RedirectHost)
 	authenticator := spotify.NewAuthenticator(redirectURL, scopes...)
-	authenticator.SetAuthInfo(clientID, secret)
+	authenticator.SetAuthInfo(cfg.ClientID, cfg.Secret)
 
 	handler := &Handler{
 		logger:        logger,
@@ -41,20 +42,24 @@ func NewHandler(logger log.Logger, clientID, secret string, postgres *postgres.C
 		authenticator: &authenticator,
 	}
 	handler.server.Handler = handler.router()
+
 	return handler
 }
 
 func (h *Handler) router() http.Handler {
 	router := mux.NewRouter()
 
-	v1 := router.PathPrefix("/api/v1").Subrouter()
-	v1.Handle("/health", promhttp.Handler()).Methods(http.MethodGet)
+	router.HandleFunc("/", h.renderIndex).Methods(http.MethodGet)
 
-	v1login := v1.PathPrefix("/login").Subrouter()
-	v1login.HandleFunc("", h.loginRedirect).Methods(http.MethodGet)
-	v1login.HandleFunc("/callback", h.loginCallback).Methods(http.MethodGet)
+	login := router.PathPrefix("/login").Subrouter()
+	login.HandleFunc("", h.loginRedirect).Methods(http.MethodGet)
+	login.HandleFunc("/callback", h.loginCallback).Methods(http.MethodGet)
 
-	v1.HandleFunc("/entries", h.listEntries).Methods(http.MethodGet)
+	protected := router.PathPrefix("/account").Subrouter()
+	protected.Use(h.authMiddleware)
+	protected.HandleFunc("/{id:[0-9]+}/manage", h.renderAccount).Methods(http.MethodGet)
+
+	router.NotFoundHandler = http.HandlerFunc(h.render404)
 
 	return router
 }

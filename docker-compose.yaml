@@ -13,6 +13,7 @@ services:
       POSTGRES_HOST: postgres:5432
       POSTGRES_PASSWORD: spautofy
       POSTGRES_USER: spautofy
+      REDIRECT_HOST: localhost:8080
 
   postgres:
     image: postgres:12.2-alpine

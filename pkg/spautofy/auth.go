@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/zmb3/spotify"
 )
 
 const (
 	// TODO: generate this state programmatically and cache it for a short period
-	authState   = "spautofy"
-	redirectURL = "http://localhost:8080/api/v1/login/callback"
+	authState = "spautofy"
 )
 
 var (
@@ -22,7 +20,6 @@ var (
 
 func (h *Handler) loginRedirect(w http.ResponseWriter, r *http.Request) {
 	h.logger.Log("event", "login.started")
-
 	http.Redirect(w, r, h.authenticator.AuthURL(authState), http.StatusFound)
 }
 
@@ -48,8 +45,12 @@ func (h *Handler) loginCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spew.Dump(user)
-
-	w.Header().Set("Location", fmt.Sprintf("/api/v1/health?token=%s", token.AccessToken))
+	w.Header().Set("Location", fmt.Sprintf("/account/%s/manage", user.ID))
 	w.WriteHeader(http.StatusFound)
+}
+
+func (h *Handler) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r)
+	})
 }
