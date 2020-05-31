@@ -17,6 +17,7 @@ run:
 	@go run ${SOURCE} \
 		--port 8080 \
 		--redirect-host localhost:8080 \
+		--session-key spautofy \
 		--spotify-client ${SPOTIFY_CLIENT_ID} \
 		--spotify-secret ${SPOTIFY_CLIENT_SECRET} \
 		--postgres-host 127.0.0.1:5432 \

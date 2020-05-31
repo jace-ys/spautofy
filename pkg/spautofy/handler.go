@@ -2,9 +2,9 @@ package spautofy
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
@@ -12,21 +12,24 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/zmb3/spotify"
 
-	"github.com/jace-ys/spautofy/pkg/user"
+	"github.com/jace-ys/spautofy/pkg/sessions"
+	"github.com/jace-ys/spautofy/pkg/users"
 )
 
 type Config struct {
 	ClientID     string
 	Secret       string
 	RedirectHost string
+	SessionKey   string
 }
 
 type Handler struct {
 	logger        log.Logger
 	server        *http.Server
 	runner        *cron.Cron
-	users         *user.Registry
+	users         *users.Registry
 	authenticator *spotify.Authenticator
+	sessions      *sessions.Manager
 }
 
 func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Handler {
@@ -38,8 +41,9 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 		logger:        logger,
 		server:        &http.Server{},
 		runner:        cron.New(),
-		users:         user.NewRegistry(postgres),
+		users:         users.NewRegistry(postgres),
 		authenticator: &authenticator,
+		sessions:      sessions.NewManager("spautofy_session", cfg.SessionKey, time.Hour),
 	}
 	handler.server.Handler = handler.router()
 
@@ -49,17 +53,17 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 func (h *Handler) router() http.Handler {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/", h.renderIndex).Methods(http.MethodGet)
+	router.HandleFunc("/", h.renderIndex())
 
-	login := router.PathPrefix("/login").Subrouter()
-	login.HandleFunc("", h.loginRedirect).Methods(http.MethodGet)
-	login.HandleFunc("/callback", h.loginCallback).Methods(http.MethodGet)
+	router.HandleFunc("/login", h.loginRedirect())
+	router.HandleFunc("/login/callback", h.loginCallback())
+	router.HandleFunc("/logout", h.logout())
 
 	protected := router.PathPrefix("/account").Subrouter()
-	protected.Use(h.authMiddleware)
-	protected.HandleFunc("/{id:[0-9]+}/manage", h.renderAccount).Methods(http.MethodGet)
+	protected.Use(h.middlewareAuthenticate)
+	protected.HandleFunc("/{id:[0-9]+}/manage", h.renderAccount())
 
-	router.NotFoundHandler = http.HandlerFunc(h.render404)
+	router.NotFoundHandler = http.HandlerFunc(h.renderError(http.StatusNotFound))
 
 	return router
 }
@@ -88,33 +92,8 @@ func (h *Handler) Shutdown(ctx context.Context) error {
 	if err := h.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
+
+	h.runner.Stop()
+
 	return nil
-}
-
-type httpError struct {
-	Error struct {
-		Status  int    `json:"status"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
-func (h *Handler) sendJSON(w http.ResponseWriter, status int, v interface{}) {
-	if err, ok := v.(error); ok {
-		var httpErr httpError
-		httpErr.Error.Status = status
-		httpErr.Error.Message = err.Error()
-		v = httpErr
-	}
-
-	response, err := json.Marshal(v)
-	if err != nil {
-		h.logger.Log("event", "response.encoded", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Spautofy is currently unavailable. Please try again later."))
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	w.Write([]byte(response))
 }

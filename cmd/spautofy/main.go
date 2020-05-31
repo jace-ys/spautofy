@@ -64,6 +64,7 @@ func parseCommand() *config {
 
 	kingpin.Flag("port", "Port for the Spautofy server.").Envar("PORT").Default("8080").IntVar(&c.port)
 	kingpin.Flag("redirect-host", "Host for the Spotify OAuth redirect URI.").Envar("REDIRECT_HOST").Default("localhost:8080").StringVar(&c.spautofy.RedirectHost)
+	kingpin.Flag("session-key", "Authentication key used for the session store.").Envar("SESSION_KEY").Default("spautofy").StringVar(&c.spautofy.SessionKey)
 	kingpin.Flag("spotify-client", "Spotify client ID.").Envar("SPOTIFY_CLIENT_ID").Required().StringVar(&c.spautofy.ClientID)
 	kingpin.Flag("spotify-secret", "Spotify client secret.").Envar("SPOTIFY_CLIENT_SECRET").Required().StringVar(&c.spautofy.Secret)
 	kingpin.Flag("postgres-host", "Host for connecting to Postgres.").Envar("POSTGRES_HOST").Default("127.0.0.1:5432").StringVar(&c.database.Host)
