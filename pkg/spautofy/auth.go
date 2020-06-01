@@ -2,10 +2,13 @@ package spautofy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/zmb3/spotify"
+
+	"github.com/jace-ys/spautofy/pkg/users"
 )
 
 var (
@@ -53,8 +56,24 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
+		// TODO: update user if exists
+		user := users.NewUser(spotifyUser, token)
+		userID, err := h.users.Create(r.Context(), user)
+		if err != nil {
+			switch {
+			case errors.Is(err, users.ErrUserExists):
+				userID = user.ID
+			default:
+				h.logger.Log("event", "user.created", "error", err)
+				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+				return
+			}
+		} else {
+			h.logger.Log("event", "user.created", "user", userID)
+		}
+
 		values := map[interface{}]interface{}{
-			"userID": spotifyUser.ID,
+			"userID": userID,
 		}
 
 		session, err = h.sessions.Update(w, r, values)
@@ -67,7 +86,7 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 		w.Header().Set("Location", fmt.Sprintf("/account/%s", spotifyUser.ID))
 		w.WriteHeader(http.StatusFound)
 
-		h.logger.Log("event", "login.finished", "session", session.GetID(), "user", spotifyUser.ID)
+		h.logger.Log("event", "login.finished", "session", session.GetID(), "user", userID)
 	}
 }
 

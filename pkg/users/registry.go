@@ -4,18 +4,31 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/jace-ys/go-library/postgres"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/zmb3/spotify"
+	"golang.org/x/oauth2"
 )
 
 var (
 	ErrUserNotFound = errors.New("user not found")
+	ErrUserExists   = errors.New("user already exists")
 )
 
 type User struct {
 	*spotify.PrivateUser
+	*oauth2.Token
+	CreatedAt time.Time
+}
+
+func NewUser(user *spotify.PrivateUser, token *oauth2.Token) *User {
+	return &User{
+		PrivateUser: user,
+		Token:       token,
+	}
 }
 
 type Registry struct {
@@ -29,10 +42,10 @@ func NewRegistry(postgres *postgres.Client) *Registry {
 }
 
 func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
-	var user spotify.PrivateUser
+	var user User
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT s.id
+		SELECT u.id, u.email, u.display_name, u.created_at
 		FROM users AS u
 		WHERE u.id=$1
 		`
@@ -47,5 +60,31 @@ func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
 			return nil, err
 		}
 	}
-	return &User{&user}, nil
+	return &user, nil
+}
+
+func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
+	var id string
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
+		query := `
+		INSERT INTO users (id, email, display_name, access_token, token_type, refresh_token, expiry)
+		VALUES (:id, :email, :display_name, :access_token, :token_type, :refresh_token, :expiry)
+		RETURNING id
+		`
+		stmt, err := tx.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		return stmt.QueryRowxContext(ctx, user).Scan(&id)
+	})
+	if err != nil {
+		var pqErr *pq.Error
+		switch {
+		case errors.As(err, &pqErr) && pqErr.Code.Name() == "unique_violation":
+			return "", ErrUserExists
+		default:
+			return "", err
+		}
+	}
+	return id, nil
 }
