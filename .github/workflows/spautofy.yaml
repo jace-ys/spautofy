@@ -7,19 +7,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-go@v1
+      - uses: actions/setup-go@v2
         with:
           go-version: "1.14"
       - uses: actions/cache@v1
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-spautofy-${{ hashFiles('go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-spautofy
+          restore-keys: ${{ runner.os }}-spautofy-
+      - name: Setup
+        run: |
+          GO111MODULE=off go get github.com/kevinburke/go-bindata/......
       - name: Inject environment
         run: touch .env
       - name: Install dependencies
         run: go mod download
+      - name: Verify assets
+        run: |
+          make assets && git add -N .
+          if ! git diff --exit-code --name-only; then
+            echo "> Generated code not up to date"
+            exit 1
+          fi
       - name: Lint
         run: |
           if [[ -n "$(gofmt -l .)" ]]; then

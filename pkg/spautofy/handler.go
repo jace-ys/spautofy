@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 	"github.com/jace-ys/go-library/postgres"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/jace-ys/spautofy/pkg/sessions"
 	"github.com/jace-ys/spautofy/pkg/users"
+	"github.com/jace-ys/spautofy/pkg/web/static"
 )
 
 type Config struct {
@@ -53,15 +55,17 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 func (h *Handler) router() http.Handler {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/", h.renderIndex())
+	staticAssets := &assetfs.AssetFS{Asset: static.Asset, AssetDir: static.AssetDir, AssetInfo: static.AssetInfo, Prefix: "static"}
+	router.PathPrefix("/static").Handler(http.FileServer(staticAssets))
 
+	router.HandleFunc("/", h.renderIndex())
 	router.HandleFunc("/login", h.loginRedirect())
 	router.HandleFunc("/login/callback", h.loginCallback())
 	router.HandleFunc("/logout", h.logout())
 
 	protected := router.PathPrefix("/account").Subrouter()
 	protected.Use(h.middlewareAuthenticate)
-	protected.HandleFunc("/{id:[0-9]+}/manage", h.renderAccount())
+	protected.HandleFunc("/{id:[0-9]+}", h.renderAccount())
 
 	router.NotFoundHandler = http.HandlerFunc(h.renderError(http.StatusNotFound))
 

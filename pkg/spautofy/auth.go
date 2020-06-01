@@ -64,7 +64,7 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Location", fmt.Sprintf("/account/%s/manage", spotifyUser.ID))
+		w.Header().Set("Location", fmt.Sprintf("/account/%s", spotifyUser.ID))
 		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "login.finished", "session", session.GetID(), "user", spotifyUser.ID)
@@ -84,7 +84,7 @@ func (h *Handler) logout() http.HandlerFunc {
 
 		http.Redirect(w, r, "/", http.StatusFound)
 
-		h.logger.Log("event", "logout.finished", "session", session.GetID(), "userID", session.Values["userID"])
+		h.logger.Log("event", "logout.finished", "session", session.GetID(), "user", session.Values["userID"])
 	}
 }
 

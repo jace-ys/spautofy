@@ -3,12 +3,20 @@ package spautofy
 import (
 	"html/template"
 	"net/http"
+	"strings"
+
+	"github.com/jace-ys/spautofy/pkg/web/templates"
 )
 
 var tmpls *template.Template
 
 func init() {
-	tmpls = template.Must(template.ParseGlob("web/templates/*.html"))
+	assets := make([]string, len(templates.AssetNames()))
+	for idx, name := range templates.AssetNames() {
+		assets[idx] = string(templates.MustAsset(name))
+	}
+
+	tmpls = template.Must(template.New("tmpls").Parse(strings.Join(assets, "")))
 }
 
 func (h *Handler) renderIndex() http.HandlerFunc {
