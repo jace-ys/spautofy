@@ -24,13 +24,6 @@ type User struct {
 	CreatedAt time.Time
 }
 
-func NewUser(user *spotify.PrivateUser, token *oauth2.Token) *User {
-	return &User{
-		PrivateUser: user,
-		Token:       token,
-	}
-}
-
 type Registry struct {
 	database *postgres.Client
 }
@@ -47,7 +40,7 @@ func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
 		query := `
 		SELECT u.id, u.email, u.display_name, u.created_at
 		FROM users AS u
-		WHERE u.id=$1
+		WHERE u.id = $1
 		`
 		row := tx.QueryRowxContext(ctx, query, id)
 		return row.StructScan(&user)
@@ -60,10 +53,16 @@ func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
 			return nil, err
 		}
 	}
+
 	return &user, nil
 }
 
-func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
+func (r *Registry) Create(ctx context.Context, spotifyUser *spotify.PrivateUser, token *oauth2.Token) (string, error) {
+	user := &User{
+		PrivateUser: spotifyUser,
+		Token:       token,
+	}
+
 	var id string
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
@@ -75,7 +74,8 @@ func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
 		if err != nil {
 			return err
 		}
-		return stmt.QueryRowxContext(ctx, user).Scan(&id)
+		row := stmt.QueryRowxContext(ctx, user)
+		return row.Scan(&id)
 	})
 	if err != nil {
 		var pqErr *pq.Error
@@ -86,5 +86,6 @@ func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
 			return "", err
 		}
 	}
+
 	return id, nil
 }

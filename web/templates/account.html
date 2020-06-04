@@ -1,8 +1,24 @@
 {{ define "account" -}}
 {{ template "header" }}
-  <body>
-    <h1>Account</h1>
-    <a href="/logout">Log out</a>
-  </body>
+<body>
+  <h1>Welcome {{ .DisplayName }}</h1>
+  <form action="/account/{{ .ID }}" method="POST">
+    <div>
+      <label for="frequency">Frequency</label>
+      <select id="frequency" name="frequency">
+        <option value="12">Every month</option>
+        <option value="4">Every 3 months</option>
+        <option value="2">Every 6 months</option>
+        <option value="1">Every 12 months</option>
+      </select>
+    </div>
+    <div>
+      <input type="checkbox" id="email" name="email" value="email" />
+      <label for="email">Confirmation email</label><br />
+    </div>
+    <input type="submit" value="Submit">
+  </form>
+  <a href="/logout">Log out</a>
+</body>
 {{ template "footer" }}
 {{- end }}

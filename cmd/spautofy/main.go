@@ -36,7 +36,7 @@ func main() {
 		return handler.StartServer(c.port)
 	})
 	g.Go(func() error {
-		return handler.StartRunner()
+		return handler.StartRunner(ctx)
 	})
 	g.Go(func() error {
 		select {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/zmb3/spotify"
 
 	"github.com/jace-ys/spautofy/pkg/users"
@@ -57,14 +58,13 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 		}
 
 		// TODO: update user if exists
-		user := users.NewUser(spotifyUser, token)
-		userID, err := h.users.Create(r.Context(), user)
+		userID, err := h.users.Create(r.Context(), spotifyUser, token)
 		if err != nil {
 			switch {
 			case errors.Is(err, users.ErrUserExists):
-				userID = user.ID
+				userID = spotifyUser.ID
 			default:
-				h.logger.Log("event", "user.created", "error", err)
+				h.logger.Log("event", "user.create.failed", "error", err)
 				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 				return
 			}
@@ -120,11 +120,28 @@ func (h *Handler) middlewareAuthenticate(next http.Handler) http.Handler {
 
 		userID, ok := session.Values["userID"]
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusFound)
+			h.renderError(http.StatusUnauthorized).ServeHTTP(w, r)
 			return
 		}
 
 		ctx := context.WithValue(r.Context(), userIDKey{}, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (h *Handler) middlewareAuthorize(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := r.Context().Value(userIDKey{}).(string)
+		if !ok {
+			h.renderError(http.StatusUnauthorized).ServeHTTP(w, r)
+			return
+		}
+
+		if userID != mux.Vars(r)["userID"] {
+			h.renderError(http.StatusForbidden).ServeHTTP(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	})
 }

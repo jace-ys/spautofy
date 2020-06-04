@@ -26,11 +26,11 @@ type Session struct {
 }
 
 func (s *Session) GetID() string {
-	id, ok := s.Values[sessionIDKey{}]
+	id, ok := s.Values[sessionIDKey{}].(string)
 	if !ok {
 		return ""
 	}
-	return id.(string)
+	return id
 }
 
 type Manager struct {
