@@ -68,6 +68,14 @@ func (r *Registry) Create(ctx context.Context, spotifyUser *spotify.PrivateUser,
 		query := `
 		INSERT INTO users (id, email, display_name, access_token, token_type, refresh_token, expiry)
 		VALUES (:id, :email, :display_name, :access_token, :token_type, :refresh_token, :expiry)
+		ON CONFLICT (id)
+		DO UPDATE SET
+			email = EXCLUDED.email,
+			display_name = EXCLUDED.display_name,
+			access_token = EXCLUDED.access_token,
+			token_type = EXCLUDED.token_type,
+			refresh_token = EXCLUDED.refresh_token,
+			expiry = EXCLUDED.expiry
 		RETURNING id
 		`
 		stmt, err := tx.PrepareNamedContext(ctx, query)

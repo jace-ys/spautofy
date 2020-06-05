@@ -57,7 +57,6 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
-		// TODO: update user if exists
 		userID, err := h.users.Create(r.Context(), spotifyUser, token)
 		if err != nil {
 			switch {
