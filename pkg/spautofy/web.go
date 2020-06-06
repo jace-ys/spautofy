@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/zmb3/spotify"
 
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/users"
@@ -35,6 +36,15 @@ func (h *Handler) renderIndex() http.HandlerFunc {
 
 func (h *Handler) renderAccount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		data := struct {
+			User      *spotify.PrivateUser
+			WithEmail bool
+			Frequency int
+		}{
+			WithEmail: true,
+			Frequency: 12,
+		}
+
 		user, err := h.users.Get(r.Context(), mux.Vars(r)["userID"])
 		if err != nil {
 			switch {
@@ -47,9 +57,25 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 				return
 			}
 		}
+		data.User = user.PrivateUser
+
+		schedule, err := h.scheduler.Get(r.Context(), user.ID)
+		if err != nil {
+			switch {
+			case errors.Is(err, scheduler.ErrScheduleNotFound):
+				// no-op
+			default:
+				h.logger.Log("event", "schedule.get.failed", "error", err)
+				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+				return
+			}
+		} else {
+			data.Frequency = scheduler.SpecToFrequency(schedule.Spec)
+			data.WithEmail = schedule.WithEmail
+		}
 
 		h.logger.Log("event", "template.rendered", "template", "account", "user", user.ID)
-		tmpls.ExecuteTemplate(w, "account", user.PrivateUser)
+		tmpls.ExecuteTemplate(w, "account", data)
 	}
 }
 
@@ -62,20 +88,16 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 			return
 		}
 
-		userID := mux.Vars(r)["userID"]
-
 		frequency, err := strconv.Atoi(r.PostForm.Get("frequency"))
 		if err != nil {
 			h.logger.Log("event", "form.parse.failed", "error", err)
 			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 			return
 		}
-		spec := fmt.Sprintf("0 0 1 1/%d *", 12/frequency)
 
-		var withEmail bool
-		if r.PostForm.Get("email") != "" {
-			withEmail = true
-		}
+		userID := mux.Vars(r)["userID"]
+		spec := scheduler.FrequencyToSpec(frequency)
+		_, withEmail := r.PostForm["email"]
 
 		err = h.scheduler.Delete(r.Context(), userID)
 		if err != nil {
@@ -105,20 +127,9 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 
 func (h *Handler) renderError(status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		type renderData struct {
-			Authenticated bool
-			UserID        string
-			Message       string
-		}
-
-		var data renderData
-		userID, ok := r.Context().Value(userIDKey{}).(string)
-		if !ok {
-			data.Authenticated = false
-		} else {
-			data.Authenticated = true
-			data.UserID = userID
-		}
+		data := struct {
+			Message string
+		}{}
 
 		switch status {
 		case http.StatusUnauthorized:

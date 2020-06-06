@@ -2,11 +2,6 @@
 {{ template "header" }}
   <body>
     <h1>{{ .Message }}</h1>
-    {{ if .Authenticated -}}
-    <a href="/account/{{ .UserID }}">Back to account</a>
-    {{- else -}}
-    <a href="/">Back to home</a>
-    {{- end }}
   </body>
 {{ template "footer" }}
 {{- end }}

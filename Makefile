@@ -6,7 +6,7 @@ DEPENDENCIES = postgres postgres.init
 
 .PHONY: default run build assets image dependencies test format
 
-default: format run
+default: assets format run
 
 run:
 	@echo "==> Executing code.."

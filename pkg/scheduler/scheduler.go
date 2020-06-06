@@ -17,13 +17,6 @@ var (
 	ErrScheduleExists   = errors.New("schedule already exists")
 )
 
-type Schedule struct {
-	ID        cron.EntryID
-	UserID    string
-	Spec      string
-	WithEmail bool
-}
-
 type Scheduler struct {
 	logger   log.Logger
 	runner   *cron.Cron
@@ -70,7 +63,7 @@ func (s *Scheduler) Get(ctx context.Context, userID string) (*Schedule, error) {
 	var schedule Schedule
 	err := s.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT s.id, s.user_id, s.spec, s.email
+		SELECT s.id, s.user_id, s.spec, s.with_email
 		FROM schedules AS s
 		WHERE s.user_id = $1
 		`
@@ -90,11 +83,6 @@ func (s *Scheduler) Get(ctx context.Context, userID string) (*Schedule, error) {
 }
 
 func (s *Scheduler) Create(ctx context.Context, userID string, spec string, withEmail bool) (cron.EntryID, error) {
-	_, err := cron.ParseStandard(spec)
-	if err != nil {
-		return 0, err
-	}
-
 	id, err := s.runner.AddFunc(spec, func() { s.logger.Log("event", "task.started", "user", userID) })
 	if err != nil {
 		return 0, err
