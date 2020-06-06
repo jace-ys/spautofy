@@ -18,7 +18,12 @@
     </div>
     <input type="submit" value="Submit" />
   </form>
-  <a href="/logout">Log out</a>
+  <div>
+    <a href="/account/{{ .User.ID }}/unsubscribe">Unsubscribe</a>
+  </div>
+  <div>
+    <a href="/logout">Log out</a>
+  </div>
   {{ if not .Next.IsZero -}}
   <h2>Next playlist: {{ .Next.Format "2 Jan 2006" }}</h2>
   {{- end }}

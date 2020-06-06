@@ -97,3 +97,25 @@ func (r *Registry) Create(ctx context.Context, spotifyUser *spotify.PrivateUser,
 
 	return id, nil
 }
+
+func (r *Registry) Delete(ctx context.Context, userID string) error {
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
+		query := `
+		DELETE FROM users
+		WHERE id = $1
+		RETURNING id
+		`
+		row := tx.QueryRowContext(ctx, query, userID)
+		return row.Scan(&userID)
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrUserNotFound
+		default:
+			return err
+		}
+	}
+
+	return nil
+}

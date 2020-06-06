@@ -29,7 +29,7 @@ func (h *Handler) loginRedirect() http.HandlerFunc {
 			return
 		}
 
-		http.Redirect(w, r, h.authenticator.AuthURL(session.GetID()), http.StatusFound)
+		http.Redirect(w, r, h.authenticator.AuthURLWithDialog(session.GetID()), http.StatusFound)
 	}
 }
 

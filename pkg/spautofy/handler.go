@@ -66,6 +66,7 @@ func (h *Handler) router() http.Handler {
 	protected := router.PathPrefix("/account").Subrouter()
 	protected.HandleFunc("/{userID:[0-9]+}", h.renderAccount()).Methods(http.MethodGet)
 	protected.HandleFunc("/{userID:[0-9]+}", h.updateAccount()).Methods(http.MethodPost)
+	protected.HandleFunc("/{userID:[0-9]+}/unsubscribe", h.deleteAccount()).Methods(http.MethodGet)
 	protected.Use(h.middlewareAuthenticate, h.middlewareAuthorize)
 
 	router.NotFoundHandler = http.HandlerFunc(h.renderError(http.StatusNotFound))

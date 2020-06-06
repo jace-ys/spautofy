@@ -128,6 +128,29 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 	}
 }
 
+func (h *Handler) deleteAccount() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := mux.Vars(r)["userID"]
+
+		err := h.users.Delete(r.Context(), userID)
+		if err != nil {
+			switch {
+			case errors.Is(err, users.ErrUserNotFound):
+				h.renderError(http.StatusNotFound).ServeHTTP(w, r)
+				return
+			default:
+				h.logger.Log("event", "schedule.delete.failed", "error", err)
+				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+				return
+			}
+		}
+
+		http.Redirect(w, r, "/logout", http.StatusFound)
+
+		h.logger.Log("event", "account.deleted", "user", userID)
+	}
+}
+
 func (h *Handler) renderError(status int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
