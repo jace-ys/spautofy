@@ -2,13 +2,29 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
+	"time"
 )
 
 func (s *Scheduler) Run(ctx context.Context) error {
-	// TODO: wrap this in a timeout
-	count, err := s.loadSchedules(ctx)
-	if err != nil {
-		return err
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	var count int
+	var err error
+	for {
+		count, err = s.loadSchedules(ctx)
+		if err == nil {
+			break
+		}
+
+		s.logger.Log("event", "schedules.load.retried")
+		select {
+		case <-time.After(15 * time.Second):
+			continue
+		case <-ctx.Done():
+			return fmt.Errorf("%w: %s", ctx.Err(), err)
+		}
 	}
 
 	s.logger.Log("event", "schedules.loaded", "scheduled", count)
