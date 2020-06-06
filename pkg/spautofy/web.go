@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zmb3/spotify"
@@ -40,6 +41,7 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 			User      *spotify.PrivateUser
 			WithEmail bool
 			Frequency int
+			Next      time.Time
 		}{
 			WithEmail: true,
 			Frequency: 12,
@@ -70,8 +72,9 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 				return
 			}
 		} else {
-			data.Frequency = scheduler.SpecToFrequency(schedule.Spec)
 			data.WithEmail = schedule.WithEmail
+			data.Frequency = schedule.Frequency()
+			data.Next = schedule.Next()
 		}
 
 		h.logger.Log("event", "template.rendered", "template", "account", "user", user.ID)
