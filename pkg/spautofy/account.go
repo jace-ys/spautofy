@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/jace-ys/spautofy/pkg/playlist"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/users"
 )
@@ -45,8 +44,8 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 			}
 		}
 
-		creator := playlist.NewCreator(h.logger, h.authenticator, h.users)
-		schedule := scheduler.NewSchedule(userID, spec, withEmail, creator.Run(userID))
+		cmd := h.playlists.Run(userID, 20, withEmail)
+		schedule := scheduler.NewSchedule(userID, spec, withEmail, cmd)
 
 		scheduleID, err := h.scheduler.Create(r.Context(), schedule)
 		if err != nil {

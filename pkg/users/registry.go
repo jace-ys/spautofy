@@ -45,9 +45,9 @@ func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
 	var user User
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT u.id, u.email, u.display_name, u.created_at
-		FROM users AS u
-		WHERE u.id = $1
+		SELECT id, email, display_name, access_token, refresh_token, token_type, expiry, created_at
+		FROM users
+		WHERE id = $1
 		`
 		row := tx.QueryRowxContext(ctx, query, id)
 		return row.StructScan(&user)
@@ -68,15 +68,15 @@ func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
 	var id string
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		INSERT INTO users (id, email, display_name, access_token, token_type, refresh_token, expiry)
-		VALUES (:id, :email, :display_name, :access_token, :token_type, :refresh_token, :expiry)
+		INSERT INTO users (id, email, display_name, access_token, refresh_token, token_type, expiry)
+		VALUES (:id, :email, :display_name, :access_token, :refresh_token, :token_type, :expiry)
 		ON CONFLICT (id)
 		DO UPDATE SET
 			email = EXCLUDED.email,
 			display_name = EXCLUDED.display_name,
 			access_token = EXCLUDED.access_token,
-			token_type = EXCLUDED.token_type,
 			refresh_token = EXCLUDED.refresh_token,
+			token_type = EXCLUDED.token_type,
 			expiry = EXCLUDED.expiry
 		RETURNING id
 		`
@@ -100,7 +100,41 @@ func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
 	return id, nil
 }
 
+func (r *Registry) Update(ctx context.Context, user *User) (string, error) {
+	var id string
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
+		query := `
+		UPDATE users SET
+			email = :email,
+			display_name = :display_name,
+			access_token = :access_token,
+			refresh_token = :refresh_token,
+			token_type = :token_type,
+			expiry = :expiry
+		WHERE id = :id
+		RETURNING id
+		`
+		stmt, err := tx.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		row := stmt.QueryRowxContext(ctx, user)
+		return row.Scan(&id)
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return "", ErrUserNotFound
+		default:
+			return "", err
+		}
+	}
+
+	return id, nil
+}
+
 func (r *Registry) Delete(ctx context.Context, userID string) error {
+	var id string
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		DELETE FROM users
@@ -108,7 +142,7 @@ func (r *Registry) Delete(ctx context.Context, userID string) error {
 		RETURNING id
 		`
 		row := tx.QueryRowContext(ctx, query, userID)
-		return row.Scan(&userID)
+		return row.Scan(&id)
 	})
 	if err != nil {
 		switch {

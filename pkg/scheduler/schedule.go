@@ -17,8 +17,10 @@ type Schedule struct {
 	ID        cron.EntryID
 	UserID    string
 	Spec      string
+	Limit     int // TODO: allow custom limit
 	WithEmail bool
 	Cmd       cron.FuncJob
+	CreatedAt time.Time
 }
 
 func NewSchedule(userID, spec string, withEmail bool, cmd cron.FuncJob) *Schedule {

@@ -45,8 +45,8 @@ func (s *Scheduler) List(ctx context.Context) ([]*Schedule, error) {
 	var schedules []*Schedule
 	err := s.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT s.id, s.user_id, s.spec, s.with_email
-		FROM schedules AS s
+		SELECT id, user_id, spec, with_email, created_at
+		FROM schedules
 		`
 		rows, err := tx.QueryxContext(ctx, query)
 		if err != nil {
@@ -73,9 +73,9 @@ func (s *Scheduler) Get(ctx context.Context, userID string) (*Schedule, error) {
 	var schedule Schedule
 	err := s.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT s.id, s.user_id, s.spec, s.with_email
-		FROM schedules AS s
-		WHERE s.user_id = $1
+		SELECT id, user_id, spec, with_email, created_at
+		FROM schedules
+		WHERE user_id = $1
 		`
 		row := tx.QueryRowxContext(ctx, query, userID)
 		return row.StructScan(&schedule)
@@ -99,12 +99,18 @@ func (s *Scheduler) Create(ctx context.Context, schedule *Schedule) (cron.EntryI
 		return 0, err
 	}
 
+	var id cron.EntryID
 	err = s.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		INSERT INTO schedules (id, user_id, spec, with_email)
-		VALUES (:id, :user_id, :spec, :with_email)
+		INSERT INTO schedules
+			(id, user_id, spec, with_email)
+		VALUES
+			(:id, :user_id, :spec, :with_email)
 		ON CONFLICT (user_id)
-		DO UPDATE SET id = EXCLUDED.id, spec = EXCLUDED.spec, with_email = EXCLUDED.with_email
+		DO UPDATE SET
+			id = EXCLUDED.id,
+			spec = EXCLUDED.spec,
+			with_email = EXCLUDED.with_email
 		RETURNING id
 		`
 		stmt, err := tx.PrepareNamedContext(ctx, query)
@@ -112,7 +118,7 @@ func (s *Scheduler) Create(ctx context.Context, schedule *Schedule) (cron.EntryI
 			return err
 		}
 		row := stmt.QueryRowxContext(ctx, schedule)
-		return row.Scan(&schedule.ID)
+		return row.Scan(&id)
 	})
 	if err != nil {
 		var pqErr *pq.Error
@@ -124,7 +130,7 @@ func (s *Scheduler) Create(ctx context.Context, schedule *Schedule) (cron.EntryI
 		}
 	}
 
-	return schedule.ID, nil
+	return id, nil
 }
 
 func (s *Scheduler) Delete(ctx context.Context, userID string) error {

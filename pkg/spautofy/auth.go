@@ -15,6 +15,8 @@ import (
 var (
 	scopes = []string{
 		spotify.ScopeUserReadEmail,
+		spotify.ScopeUserTopRead,
+		spotify.ScopePlaylistModifyPrivate,
 	}
 )
 

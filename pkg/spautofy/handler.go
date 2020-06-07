@@ -12,7 +12,7 @@ import (
 	"github.com/jace-ys/go-library/postgres"
 	"github.com/zmb3/spotify"
 
-	"github.com/jace-ys/spautofy/pkg/playlist"
+	"github.com/jace-ys/spautofy/pkg/playlists"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/sessions"
 	"github.com/jace-ys/spautofy/pkg/users"
@@ -33,6 +33,7 @@ type Handler struct {
 	users         *users.Registry
 	authenticator *spotify.Authenticator
 	sessions      *sessions.Manager
+	playlists     *playlists.Builder
 }
 
 func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Handler {
@@ -48,7 +49,9 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 		authenticator: &authenticator,
 		sessions:      sessions.NewManager("spautofy_session", cfg.SessionKey, time.Hour),
 	}
+
 	handler.server.Handler = handler.router()
+	handler.playlists = playlists.NewBuilder(logger, postgres, handler.users, handler.authenticator)
 
 	return handler
 }
@@ -128,8 +131,7 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 	}
 
 	for idx, schedule := range schedules {
-		creator := playlist.NewCreator(h.logger, h.authenticator, h.users)
-		schedule.Cmd = creator.Run(schedule.UserID)
+		schedule.Cmd = h.playlists.Run(schedule.UserID, 20, schedule.WithEmail)
 
 		_, err := h.scheduler.Create(ctx, schedule)
 		if err != nil {
