@@ -12,6 +12,7 @@ import (
 	"github.com/jace-ys/go-library/postgres"
 	"github.com/zmb3/spotify"
 
+	"github.com/jace-ys/spautofy/pkg/playlist"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/sessions"
 	"github.com/jace-ys/spautofy/pkg/users"
@@ -90,11 +91,53 @@ func (h *Handler) StartRunner(ctx context.Context) error {
 	h.logger.Log("event", "scheduler.started")
 	defer h.logger.Log("event", "scheduler.stopped")
 
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	var count int
+	var err error
+	for {
+		count, err = h.loadSchedules(ctx)
+		if err == nil {
+			break
+		}
+
+		h.logger.Log("event", "schedules.load.retried")
+		select {
+		case <-time.After(15 * time.Second):
+			continue
+		case <-ctx.Done():
+			err = fmt.Errorf("%s: %w", ctx.Err(), err)
+			return fmt.Errorf("failed to load schedules: %w", err)
+		}
+	}
+
+	h.logger.Log("event", "schedules.loaded", "loaded", count)
+
 	if err := h.scheduler.Run(ctx); err != nil {
 		return fmt.Errorf("failed to start scheduler: %w", err)
 	}
 
 	return nil
+}
+
+func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
+	schedules, err := h.scheduler.List(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	for idx, schedule := range schedules {
+		creator := playlist.NewCreator(h.logger, h.authenticator, h.users)
+		schedule.Cmd = creator.Run(schedule.UserID)
+
+		_, err := h.scheduler.Create(ctx, schedule)
+		if err != nil {
+			return idx, err
+		}
+	}
+
+	return len(schedules), nil
 }
 
 func (h *Handler) Shutdown(ctx context.Context) error {

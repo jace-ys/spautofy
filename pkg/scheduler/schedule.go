@@ -18,6 +18,16 @@ type Schedule struct {
 	UserID    string
 	Spec      string
 	WithEmail bool
+	Cmd       cron.FuncJob
+}
+
+func NewSchedule(userID, spec string, withEmail bool, cmd cron.FuncJob) *Schedule {
+	return &Schedule{
+		UserID:    userID,
+		Spec:      spec,
+		WithEmail: withEmail,
+		Cmd:       cmd,
+	}
 }
 
 func (s *Schedule) Frequency() int {

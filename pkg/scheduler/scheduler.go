@@ -31,6 +31,16 @@ func NewScheduler(logger log.Logger, postgres *postgres.Client) *Scheduler {
 	}
 }
 
+func (s *Scheduler) Run(ctx context.Context) error {
+	s.runner.Run()
+	return nil
+}
+
+func (s *Scheduler) Stop() error {
+	s.runner.Stop()
+	return nil
+}
+
 func (s *Scheduler) List(ctx context.Context) ([]*Schedule, error) {
 	var schedules []*Schedule
 	err := s.database.Transact(ctx, func(tx *sqlx.Tx) error {
@@ -82,17 +92,11 @@ func (s *Scheduler) Get(ctx context.Context, userID string) (*Schedule, error) {
 	return &schedule, nil
 }
 
-func (s *Scheduler) Create(ctx context.Context, userID string, spec string, withEmail bool) (cron.EntryID, error) {
-	id, err := s.runner.AddFunc(spec, func() { s.logger.Log("event", "task.started", "user", userID) })
+func (s *Scheduler) Create(ctx context.Context, schedule *Schedule) (cron.EntryID, error) {
+	var err error
+	schedule.ID, err = s.runner.AddFunc(schedule.Spec, schedule.Cmd)
 	if err != nil {
 		return 0, err
-	}
-
-	schedule := &Schedule{
-		ID:        id,
-		UserID:    userID,
-		Spec:      spec,
-		WithEmail: withEmail,
 	}
 
 	err = s.database.Transact(ctx, func(tx *sqlx.Tx) error {
@@ -108,7 +112,7 @@ func (s *Scheduler) Create(ctx context.Context, userID string, spec string, with
 			return err
 		}
 		row := stmt.QueryRowxContext(ctx, schedule)
-		return row.Scan(&id)
+		return row.Scan(&schedule.ID)
 	})
 	if err != nil {
 		var pqErr *pq.Error
@@ -120,7 +124,7 @@ func (s *Scheduler) Create(ctx context.Context, userID string, spec string, with
 		}
 	}
 
-	return id, nil
+	return schedule.ID, nil
 }
 
 func (s *Scheduler) Delete(ctx context.Context, userID string) error {

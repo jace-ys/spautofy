@@ -57,7 +57,8 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
-		userID, err := h.users.Create(r.Context(), spotifyUser, token)
+		user := users.NewUser(spotifyUser, token)
+		userID, err := h.users.Create(r.Context(), user)
 		if err != nil {
 			switch {
 			case errors.Is(err, users.ErrUserExists):

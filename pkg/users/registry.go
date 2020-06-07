@@ -24,6 +24,13 @@ type User struct {
 	CreatedAt time.Time
 }
 
+func NewUser(spotifyUser *spotify.PrivateUser, token *oauth2.Token) *User {
+	return &User{
+		PrivateUser: spotifyUser,
+		Token:       token,
+	}
+}
+
 type Registry struct {
 	database *postgres.Client
 }
@@ -57,12 +64,7 @@ func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
 	return &user, nil
 }
 
-func (r *Registry) Create(ctx context.Context, spotifyUser *spotify.PrivateUser, token *oauth2.Token) (string, error) {
-	user := &User{
-		PrivateUser: spotifyUser,
-		Token:       token,
-	}
-
+func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
 	var id string
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
