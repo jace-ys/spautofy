@@ -41,7 +41,7 @@ func NewRegistry(postgres *postgres.Client) *Registry {
 	}
 }
 
-func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
+func (r *Registry) Get(ctx context.Context, userID string) (*User, error) {
 	var user User
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
@@ -49,7 +49,7 @@ func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
 		FROM users
 		WHERE id = $1
 		`
-		row := tx.QueryRowxContext(ctx, query, id)
+		row := tx.QueryRowxContext(ctx, query, userID)
 		return row.StructScan(&user)
 	})
 	if err != nil {
@@ -65,7 +65,33 @@ func (r *Registry) Get(ctx context.Context, id string) (*User, error) {
 }
 
 func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
-	var id string
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
+		query := `
+		INSERT INTO users (id, email, display_name, access_token, refresh_token, token_type, expiry)
+		VALUES (:id, :email, :display_name, :access_token, :refresh_token, :token_type, :expiry)
+		RETURNING id
+		`
+		stmt, err := tx.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		row := stmt.QueryRowxContext(ctx, user)
+		return row.Scan(&user.ID)
+	})
+	if err != nil {
+		var pqErr *pq.Error
+		switch {
+		case errors.As(err, &pqErr) && pqErr.Code.Name() == "unique_violation":
+			return "", ErrUserExists
+		default:
+			return "", err
+		}
+	}
+
+	return user.ID, nil
+}
+
+func (r *Registry) CreateOrUpdate(ctx context.Context, user *User) (string, error) {
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		INSERT INTO users (id, email, display_name, access_token, refresh_token, token_type, expiry)
@@ -85,7 +111,7 @@ func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
 			return err
 		}
 		row := stmt.QueryRowxContext(ctx, user)
-		return row.Scan(&id)
+		return row.Scan(&user.ID)
 	})
 	if err != nil {
 		var pqErr *pq.Error
@@ -97,11 +123,10 @@ func (r *Registry) Create(ctx context.Context, user *User) (string, error) {
 		}
 	}
 
-	return id, nil
+	return user.ID, nil
 }
 
 func (r *Registry) Update(ctx context.Context, user *User) (string, error) {
-	var id string
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		UPDATE users SET
@@ -119,7 +144,7 @@ func (r *Registry) Update(ctx context.Context, user *User) (string, error) {
 			return err
 		}
 		row := stmt.QueryRowxContext(ctx, user)
-		return row.Scan(&id)
+		return row.Scan(&user.ID)
 	})
 	if err != nil {
 		switch {
@@ -130,11 +155,10 @@ func (r *Registry) Update(ctx context.Context, user *User) (string, error) {
 		}
 	}
 
-	return id, nil
+	return user.ID, nil
 }
 
 func (r *Registry) Delete(ctx context.Context, userID string) error {
-	var id string
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		DELETE FROM users
@@ -142,7 +166,7 @@ func (r *Registry) Delete(ctx context.Context, userID string) error {
 		RETURNING id
 		`
 		row := tx.QueryRowContext(ctx, query, userID)
-		return row.Scan(&id)
+		return row.Scan(&userID)
 	})
 	if err != nil {
 		switch {

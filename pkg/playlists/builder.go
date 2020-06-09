@@ -34,7 +34,7 @@ func NewBuilder(logger log.Logger, postgres *postgres.Client, users *users.Regis
 	}
 }
 
-func (b *Builder) Run(userID string, limit int, withEmail bool) func() {
+func (b *Builder) Run(userID string, trackLimit int, withEmail bool) func() {
 	return func() {
 		logger := log.With(b.logger, "user", userID, "email", withEmail)
 		logger.Log("event", "playlist.create.started")
@@ -54,7 +54,7 @@ func (b *Builder) Run(userID string, limit int, withEmail bool) func() {
 			return
 		}
 
-		playlist, err := b.BuildPlaylist(user, limit, TimerangeShort, withEmail)
+		playlist, err := b.BuildPlaylist(user, trackLimit, TimerangeShort, withEmail)
 		if err != nil {
 			logger.Log("event", "playlist.build.failed", "error", err)
 			return

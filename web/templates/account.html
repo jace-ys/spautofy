@@ -2,7 +2,7 @@
 {{ template "header" }}
 <body>
   <h1>Welcome {{ .User.DisplayName }}</h1>
-  <form action="/account/{{ .User.ID }}" method="POST">
+  <form action="/accounts/{{ .User.ID }}" method="POST">
     <div>
       <label for="frequency">Frequency</label>
       <select id="frequency" name="frequency">
@@ -13,13 +13,21 @@
       </select>
     </div>
     <div>
+      <label for="limit">Number of tracks</label>
+      <select id="limit" name="limit">
+        <option value="10"{{ if eq .TrackLimit 10 }} selected{{ end }}>10</option>
+        <option value="20"{{ if eq .TrackLimit 20 }} selected{{ end }}>20</option>
+        <option value="30"{{ if eq .TrackLimit 30 }} selected{{ end }}>30</option>
+      </select>
+    </div>
+    <div>
       <input type="checkbox" id="email" name="email" value="email"{{ if .WithEmail }}checked{{ end }} />
       <label for="email">Confirmation email</label>
     </div>
     <input type="submit" value="Submit" />
   </form>
   <div>
-    <a href="/account/{{ .User.ID }}/unsubscribe">Unsubscribe</a>
+    <a href="/accounts/{{ .User.ID }}/unsubscribe">Unsubscribe</a>
   </div>
   <div>
     <a href="/logout">Log out</a>

@@ -72,13 +72,10 @@ func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error
 		Tracks:   pq.Array(playlist.TrackIDs),
 	}
 
-	var id string
 	err := b.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		INSERT INTO playlists
-			(id, user_id, name, description, tracks, endpoint, snapshot_id)
-		VALUES
-			(:id, :user_id, :name, :description, :tracks, :endpoint, :snapshot_id)
+		INSERT INTO playlists (id, user_id, name, description, tracks, endpoint, snapshot_id)
+		VALUES (:id, :user_id, :name, :description, :tracks, :endpoint, :snapshot_id)
 		RETURNING id
 		`
 		stmt, err := tx.PrepareNamedContext(ctx, query)
@@ -86,7 +83,7 @@ func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error
 			return err
 		}
 		row := stmt.QueryRowxContext(ctx, dbPlaylist)
-		return row.Scan(&id)
+		return row.Scan(&playlist.ID)
 	})
 	if err != nil {
 		var pqErr *pq.Error
@@ -98,7 +95,7 @@ func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error
 		}
 	}
 
-	return id, nil
+	return string(playlist.ID), nil
 }
 
 func (b *Builder) Delete(ctx context.Context, name string) error {

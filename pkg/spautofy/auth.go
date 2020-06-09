@@ -31,7 +31,7 @@ func (h *Handler) loginRedirect() http.HandlerFunc {
 			return
 		}
 
-		http.Redirect(w, r, h.authenticator.AuthURLWithDialog(session.GetID()), http.StatusFound)
+		http.Redirect(w, r, h.authenticator.AuthURL(session.GetID()), http.StatusFound)
 	}
 }
 
@@ -60,13 +60,13 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 		}
 
 		user := users.NewUser(spotifyUser, token)
-		userID, err := h.users.Create(r.Context(), user)
+		userID, err := h.users.CreateOrUpdate(r.Context(), user)
 		if err != nil {
 			switch {
 			case errors.Is(err, users.ErrUserExists):
 				userID = spotifyUser.ID
 			default:
-				h.logger.Log("event", "user.create.failed", "error", err)
+				h.logger.Log("event", "user.upsert.failed", "error", err)
 				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 				return
 			}
@@ -85,7 +85,7 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Location", fmt.Sprintf("/account/%s", spotifyUser.ID))
+		w.Header().Set("Location", fmt.Sprintf("/accounts/%s", spotifyUser.ID))
 		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "login.finished", "session", session.GetID(), "user", userID)

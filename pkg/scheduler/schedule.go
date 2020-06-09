@@ -17,27 +17,16 @@ type Schedule struct {
 	ID        cron.EntryID
 	UserID    string
 	Spec      string
-	Limit     int // TODO: allow custom limit
-	WithEmail bool
 	Cmd       cron.FuncJob
 	CreatedAt time.Time
 }
 
-func NewSchedule(userID, spec string, withEmail bool, cmd cron.FuncJob) *Schedule {
+func NewSchedule(userID, spec string, cmd cron.FuncJob) *Schedule {
 	return &Schedule{
-		UserID:    userID,
-		Spec:      spec,
-		WithEmail: withEmail,
-		Cmd:       cmd,
+		UserID: userID,
+		Spec:   spec,
+		Cmd:    cmd,
 	}
-}
-
-func (s *Schedule) Frequency() int {
-	return SpecToFrequency(s.Spec)
-}
-
-func (s *Schedule) Next() time.Time {
-	return GetNext(s.Spec)
 }
 
 func SpecToFrequency(spec string) int {

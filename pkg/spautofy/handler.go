@@ -12,6 +12,7 @@ import (
 	"github.com/jace-ys/go-library/postgres"
 	"github.com/zmb3/spotify"
 
+	"github.com/jace-ys/spautofy/pkg/accounts"
 	"github.com/jace-ys/spautofy/pkg/playlists"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/sessions"
@@ -29,11 +30,12 @@ type Config struct {
 type Handler struct {
 	logger        log.Logger
 	server        *http.Server
-	scheduler     *scheduler.Scheduler
 	users         *users.Registry
+	accounts      *accounts.Registry
+	scheduler     *scheduler.Scheduler
+	playlists     *playlists.Builder
 	authenticator *spotify.Authenticator
 	sessions      *sessions.Manager
-	playlists     *playlists.Builder
 }
 
 func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Handler {
@@ -44,8 +46,9 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 	handler := &Handler{
 		logger:        logger,
 		server:        &http.Server{},
-		scheduler:     scheduler.NewScheduler(logger, postgres),
 		users:         users.NewRegistry(postgres),
+		accounts:      accounts.NewRegistry(postgres),
+		scheduler:     scheduler.NewScheduler(logger, postgres),
 		authenticator: &authenticator,
 		sessions:      sessions.NewManager("spautofy_session", cfg.SessionKey, time.Hour),
 	}
@@ -67,7 +70,7 @@ func (h *Handler) router() http.Handler {
 	router.HandleFunc("/login/callback", h.loginCallback())
 	router.HandleFunc("/logout", h.logout())
 
-	protected := router.PathPrefix("/account").Subrouter()
+	protected := router.PathPrefix("/accounts").Subrouter()
 	protected.HandleFunc("/{userID:[0-9]+}", h.renderAccount()).Methods(http.MethodGet)
 	protected.HandleFunc("/{userID:[0-9]+}", h.updateAccount()).Methods(http.MethodPost)
 	protected.HandleFunc("/{userID:[0-9]+}/unsubscribe", h.deleteAccount()).Methods(http.MethodGet)
@@ -131,9 +134,15 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 	}
 
 	for idx, schedule := range schedules {
-		schedule.Cmd = h.playlists.Run(schedule.UserID, 20, schedule.WithEmail)
+		account, err := h.accounts.Get(ctx, schedule.UserID)
+		if err != nil {
+			return idx, err
+		}
 
-		_, err := h.scheduler.Create(ctx, schedule)
+		schedule.Spec = account.Schedule
+		schedule.Cmd = h.playlists.Run(account.UserID, account.TrackLimit, account.WithEmail)
+
+		_, err = h.scheduler.Create(ctx, schedule)
 		if err != nil {
 			return idx, err
 		}

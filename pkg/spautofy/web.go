@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zmb3/spotify"
 
+	"github.com/jace-ys/spautofy/pkg/accounts"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/users"
 	"github.com/jace-ys/spautofy/pkg/web/templates"
@@ -36,16 +37,19 @@ func (h *Handler) renderIndex() http.HandlerFunc {
 func (h *Handler) renderAccount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
-			User      *spotify.PrivateUser
-			WithEmail bool
-			Frequency int
-			Next      time.Time
+			User       *spotify.PrivateUser
+			Frequency  int
+			TrackLimit int
+			WithEmail  bool
+			Next       time.Time
 		}{
-			WithEmail: true,
-			Frequency: 12,
+			WithEmail:  true,
+			TrackLimit: 20,
+			Frequency:  12,
 		}
 
-		user, err := h.users.Get(r.Context(), mux.Vars(r)["userID"])
+		userID := mux.Vars(r)["userID"]
+		user, err := h.users.Get(r.Context(), userID)
 		if err != nil {
 			switch {
 			case errors.Is(err, users.ErrUserNotFound):
@@ -59,20 +63,21 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 		}
 		data.User = user.PrivateUser
 
-		schedule, err := h.scheduler.Get(r.Context(), user.ID)
+		account, err := h.accounts.Get(r.Context(), user.ID)
 		if err != nil {
 			switch {
-			case errors.Is(err, scheduler.ErrScheduleNotFound):
+			case errors.Is(err, accounts.ErrAccountNotFound):
 				// no-op
 			default:
-				h.logger.Log("event", "schedule.get.failed", "error", err)
+				h.logger.Log("event", "account.get.failed", "error", err)
 				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 				return
 			}
 		} else {
-			data.WithEmail = schedule.WithEmail
-			data.Frequency = schedule.Frequency()
-			data.Next = schedule.Next()
+			data.Frequency = scheduler.SpecToFrequency(account.Schedule)
+			data.TrackLimit = account.TrackLimit
+			data.WithEmail = account.WithEmail
+			data.Next = scheduler.GetNext(account.Schedule)
 		}
 
 		h.logger.Log("event", "template.rendered", "template", "account", "user", user.ID)

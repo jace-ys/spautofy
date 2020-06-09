@@ -8,29 +8,26 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/jace-ys/spautofy/pkg/accounts"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/users"
 )
 
 func (h *Handler) updateAccount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := r.ParseForm()
+		account, err := h.parseAccountForm(r)
 		if err != nil {
 			h.logger.Log("event", "form.parse.failed", "error", err)
 			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 			return
 		}
 
-		frequency, err := strconv.Atoi(r.PostForm.Get("frequency"))
+		userID, err := h.accounts.CreateOrUpdate(r.Context(), account)
 		if err != nil {
-			h.logger.Log("event", "form.parse.failed", "error", err)
+			h.logger.Log("event", "account.upsert.failed", "error", err)
 			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 			return
 		}
-
-		userID := mux.Vars(r)["userID"]
-		spec := scheduler.FrequencyToSpec(frequency)
-		_, withEmail := r.PostForm["email"]
 
 		err = h.scheduler.Delete(r.Context(), userID)
 		if err != nil {
@@ -44,9 +41,9 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 			}
 		}
 
-		cmd := h.playlists.Run(userID, 20, withEmail)
-		schedule := scheduler.NewSchedule(userID, spec, withEmail, cmd)
+		cmd := h.playlists.Run(userID, account.TrackLimit, account.WithEmail)
 
+		schedule := scheduler.NewSchedule(userID, account.Schedule, cmd)
 		scheduleID, err := h.scheduler.Create(r.Context(), schedule)
 		if err != nil {
 			h.logger.Log("event", "schedule.create.failed", "error", err)
@@ -54,11 +51,33 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Location", fmt.Sprintf("/account/%s", userID))
+		w.Header().Set("Location", fmt.Sprintf("/accounts/%s", userID))
 		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "account.updated", "user", userID, "schedule", scheduleID)
 	}
+}
+
+func (h *Handler) parseAccountForm(r *http.Request) (*accounts.Account, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return nil, err
+	}
+
+	frequency, err := strconv.Atoi(r.PostForm.Get("frequency"))
+	if err != nil {
+		return nil, err
+	}
+
+	limit, err := strconv.Atoi(r.PostForm.Get("limit"))
+	if err != nil {
+		return nil, err
+	}
+
+	_, withEmail := r.PostForm["email"]
+
+	account := accounts.NewAccount(mux.Vars(r)["userID"], scheduler.FrequencyToSpec(frequency), limit, withEmail)
+	return account, nil
 }
 
 func (h *Handler) deleteAccount() http.HandlerFunc {
