@@ -2,7 +2,6 @@ package playlists
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -17,26 +16,6 @@ const (
 	TimerangeMedium string = "medium"
 	TimerangeLong   string = "long"
 )
-
-type Playlist struct {
-	ID          spotify.ID
-	UserID      string
-	Name        string
-	Description string
-	Tracks      []spotify.ID
-	Endpoint    string
-	SnapshotID  string
-	CreatedAt   time.Time
-}
-
-func NewPlaylist(userID string, tracks []spotify.ID) *Playlist {
-	return &Playlist{
-		UserID:      userID,
-		Name:        time.Now().Format("Jan 2006"),
-		Description: "A playlist put together for you by Spautofy based on your recent top tracks.",
-		Tracks:      tracks,
-	}
-}
 
 type Builder struct {
 	logger        log.Logger
@@ -59,7 +38,6 @@ func (b *Builder) Run(userID string, limit int, withEmail bool) func() {
 	return func() {
 		logger := log.With(b.logger, "user", userID, "email", withEmail)
 		logger.Log("event", "playlist.create.started")
-		defer logger.Log("event", "playlist.create.finished")
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -82,7 +60,13 @@ func (b *Builder) Run(userID string, limit int, withEmail bool) func() {
 			return
 		}
 
-		fmt.Println(playlist)
+		id, err := b.Create(ctx, playlist)
+		if err != nil {
+			logger.Log("event", "playlist.create.failed", "error", err)
+			return
+		}
+
+		logger.Log("event", "playlist.create.finished", "id", id)
 	}
 }
 
@@ -114,12 +98,12 @@ func (b *Builder) BuildPlaylist(user *users.User, limit int, timerange string, w
 		Timerange: &timerange,
 	}
 
-	tracks, err := b.getTrackIDs(opts)
+	trackIDs, err := b.getTrackIDs(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	playlist := NewPlaylist(user.ID, tracks)
+	playlist := NewPlaylist(user.ID, trackIDs)
 
 	if withEmail {
 		// TODO: send email with playlist data
@@ -149,7 +133,7 @@ func (b *Builder) buildPlaylist(playlist *Playlist) error {
 		return err
 	}
 
-	snapshotID, err := b.client.AddTracksToPlaylist(spotifyPlaylist.ID, playlist.Tracks...)
+	snapshotID, err := b.client.AddTracksToPlaylist(spotifyPlaylist.ID, playlist.TrackIDs...)
 	if err != nil {
 		return err
 	}
