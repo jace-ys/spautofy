@@ -70,11 +70,14 @@ func (h *Handler) router() http.Handler {
 	router.HandleFunc("/login/callback", h.loginCallback())
 	router.HandleFunc("/logout", h.logout())
 
-	protected := router.PathPrefix("/accounts").Subrouter()
-	protected.HandleFunc("/{userID:[0-9]+}", h.renderAccount()).Methods(http.MethodGet)
-	protected.HandleFunc("/{userID:[0-9]+}", h.updateAccount()).Methods(http.MethodPost)
-	protected.HandleFunc("/{userID:[0-9]+}/unsubscribe", h.deleteAccount()).Methods(http.MethodGet)
-	protected.Use(h.middlewareAuthenticate, h.middlewareAuthorize)
+	accounts := router.PathPrefix("/accounts/{userID:[0-9]+}").Subrouter()
+	accounts.Use(h.middlewareAuthenticate, h.middlewareAuthorize)
+	accounts.HandleFunc("", h.renderAccount()).Methods(http.MethodGet)
+	accounts.HandleFunc("", h.updateAccount()).Methods(http.MethodPost)
+	accounts.HandleFunc("/unsubscribe", h.deleteAccount()).Methods(http.MethodGet)
+
+	playlists := accounts.PathPrefix("/playlists/{playlistName}").Subrouter()
+	playlists.HandleFunc("", h.renderPlaylist()).Methods(http.MethodGet)
 
 	router.NotFoundHandler = http.HandlerFunc(h.renderError(http.StatusNotFound))
 

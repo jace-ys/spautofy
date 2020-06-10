@@ -3,7 +3,6 @@ package playlists
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"errors"
 	"time"
 
@@ -23,9 +22,13 @@ type Playlist struct {
 	Name        string
 	Description string
 	TrackIDs    []spotify.ID
-	Endpoint    string
 	SnapshotID  string
 	CreatedAt   time.Time
+}
+
+type PlaylistEnvelope struct {
+	*Playlist
+	Tracks pq.StringArray
 }
 
 func NewPlaylist(userID string, trackIDs []spotify.ID) *Playlist {
@@ -37,16 +40,16 @@ func NewPlaylist(userID string, trackIDs []spotify.ID) *Playlist {
 	}
 }
 
-func (b *Builder) Get(ctx context.Context, name string) (*Playlist, error) {
-	var playlist Playlist
+func (b *Builder) Get(ctx context.Context, userID, name string) (*Playlist, error) {
+	var envelope PlaylistEnvelope
 	err := b.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT id, user_id, name, description, tracks, endpoint, snapshot_id, created_at
+		SELECT id, user_id, name, description, tracks, snapshot_id, created_at
 		FROM playlists
-		WHERE name = $1
+		WHERE user_id = $1 AND name = $2
 		`
-		row := tx.QueryRowxContext(ctx, query, name)
-		return row.StructScan(&playlist)
+		row := tx.QueryRowxContext(ctx, query, userID, name)
+		return row.StructScan(&envelope)
 	})
 	if err != nil {
 		switch {
@@ -57,32 +60,35 @@ func (b *Builder) Get(ctx context.Context, name string) (*Playlist, error) {
 		}
 	}
 
-	return &playlist, nil
+	envelope.Playlist.TrackIDs = make([]spotify.ID, len(envelope.Tracks))
+	for idx, track := range envelope.Tracks {
+		envelope.Playlist.TrackIDs[idx] = spotify.ID(track)
+	}
+
+	return envelope.Playlist, nil
 }
 
 func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error) {
-	dbPlaylist := struct {
-		*Playlist
-		Tracks interface {
-			driver.Valuer
-			sql.Scanner
-		}
-	}{
+	envelope := &PlaylistEnvelope{
 		Playlist: playlist,
-		Tracks:   pq.Array(playlist.TrackIDs),
+		Tracks:   make(pq.StringArray, len(playlist.TrackIDs)),
+	}
+
+	for idx, track := range playlist.TrackIDs {
+		envelope.Tracks[idx] = string(track)
 	}
 
 	err := b.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		INSERT INTO playlists (id, user_id, name, description, tracks, endpoint, snapshot_id)
-		VALUES (:id, :user_id, :name, :description, :tracks, :endpoint, :snapshot_id)
+		INSERT INTO playlists (id, user_id, name, description, tracks, snapshot_id)
+		VALUES (:id, :user_id, :name, :description, :tracks, :snapshot_id)
 		RETURNING id
 		`
 		stmt, err := tx.PrepareNamedContext(ctx, query)
 		if err != nil {
 			return err
 		}
-		row := stmt.QueryRowxContext(ctx, dbPlaylist)
+		row := stmt.QueryRowxContext(ctx, envelope)
 		return row.Scan(&playlist.ID)
 	})
 	if err != nil {
@@ -98,15 +104,15 @@ func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error
 	return string(playlist.ID), nil
 }
 
-func (b *Builder) Delete(ctx context.Context, name string) error {
+func (b *Builder) Delete(ctx context.Context, userID, name string) error {
 	var id string
 	err := b.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		DELETE FROM playlists
-		WHERE name = $1
+		WHERE user_id = $1 AND name = $2
 		RETURNING id
 		`
-		row := tx.QueryRowContext(ctx, query, name)
+		row := tx.QueryRowContext(ctx, query, userID, name)
 		return row.Scan(&id)
 	})
 	if err != nil {

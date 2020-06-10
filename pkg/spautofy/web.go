@@ -2,6 +2,7 @@ package spautofy
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/zmb3/spotify"
 
 	"github.com/jace-ys/spautofy/pkg/accounts"
+	"github.com/jace-ys/spautofy/pkg/playlists"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/users"
 	"github.com/jace-ys/spautofy/pkg/web/templates"
@@ -82,6 +84,49 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 
 		h.logger.Log("event", "template.rendered", "template", "account", "user", user.ID)
 		tmpls.ExecuteTemplate(w, "account", data)
+	}
+}
+
+func (h *Handler) renderPlaylist() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data := struct {
+			UserID string
+			Name   string
+			Link   string
+			Tracks []*playlists.Track
+		}{}
+
+		userID := mux.Vars(r)["userID"]
+		playlistName := mux.Vars(r)["playlistName"]
+
+		playlist, err := h.playlists.Get(r.Context(), userID, playlistName)
+		if err != nil {
+			switch {
+			case errors.Is(err, playlists.ErrPlaylistNotFound):
+				h.renderError(http.StatusNotFound).ServeHTTP(w, r)
+				return
+			default:
+				h.logger.Log("event", "playlist.get.failed", "error", err)
+				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+				return
+			}
+		}
+
+		data.UserID = playlist.UserID
+		data.Name = playlist.Name
+		data.Tracks, err = h.playlists.FetchTracks(r.Context(), playlist.UserID, playlist.TrackIDs)
+		if err != nil {
+			h.logger.Log("event", "tracks.fetch.failed", "error", err)
+			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+			return
+		}
+
+		if playlist.SnapshotID != "" {
+			data.Link = fmt.Sprintf("https://open.spotify.com/playlist/%s", playlist.ID)
+		}
+
+		h.logger.Log("event", "template.rendered", "template", "playlist", "user", userID, "playlist", playlist.Name)
+		tmpls.ExecuteTemplate(w, "playlist", data)
 	}
 }
 

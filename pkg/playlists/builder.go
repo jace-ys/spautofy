@@ -139,7 +139,6 @@ func (b *Builder) buildPlaylist(playlist *Playlist) error {
 	}
 
 	playlist.ID = spotifyPlaylist.ID
-	playlist.Endpoint = spotifyPlaylist.Endpoint
 	playlist.SnapshotID = snapshotID
 
 	return nil
