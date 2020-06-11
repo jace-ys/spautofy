@@ -4,7 +4,7 @@
     <h1>{{ .Name }}</h1>
     {{ if .Link -}}
     <a href="{{ .Link }}">Link to playlist</a>
-    {{- end }}
+    {{- else -}}
     <form action="/accounts/{{ .UserID }}/playlists/{{ .Name }}" method="POST">
     {{- range .Tracks }}
       <div>
@@ -14,6 +14,7 @@
     {{- end }}
       <input type="submit" value="Create" />
     </form>
+    {{- end }}
   </body>
 {{ template "footer" }}
 {{- end }}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jace-ys/go-library/postgres"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/zmb3/spotify"
@@ -31,18 +32,19 @@ type PlaylistEnvelope struct {
 	Tracks pq.StringArray
 }
 
-func NewPlaylist(userID string, trackIDs []spotify.ID) *Playlist {
-	return &Playlist{
-		UserID:      userID,
-		Name:        time.Now().Format("Jan 2006"),
-		Description: "A playlist put together for you by Spautofy based on your recent top tracks.",
-		TrackIDs:    trackIDs,
+type Registry struct {
+	database *postgres.Client
+}
+
+func NewRegistry(postgres *postgres.Client) *Registry {
+	return &Registry{
+		database: postgres,
 	}
 }
 
-func (b *Builder) Get(ctx context.Context, userID, name string) (*Playlist, error) {
+func (r *Registry) Get(ctx context.Context, userID, name string) (*Playlist, error) {
 	var envelope PlaylistEnvelope
-	err := b.database.Transact(ctx, func(tx *sqlx.Tx) error {
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		SELECT id, user_id, name, description, tracks, snapshot_id, created_at
 		FROM playlists
@@ -68,7 +70,7 @@ func (b *Builder) Get(ctx context.Context, userID, name string) (*Playlist, erro
 	return envelope.Playlist, nil
 }
 
-func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error) {
+func (r *Registry) Create(ctx context.Context, playlist *Playlist) (spotify.ID, error) {
 	envelope := &PlaylistEnvelope{
 		Playlist: playlist,
 		Tracks:   make(pq.StringArray, len(playlist.TrackIDs)),
@@ -78,7 +80,7 @@ func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error
 		envelope.Tracks[idx] = string(track)
 	}
 
-	err := b.database.Transact(ctx, func(tx *sqlx.Tx) error {
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		INSERT INTO playlists (id, user_id, name, description, tracks, snapshot_id)
 		VALUES (:id, :user_id, :name, :description, :tracks, :snapshot_id)
@@ -101,12 +103,51 @@ func (b *Builder) Create(ctx context.Context, playlist *Playlist) (string, error
 		}
 	}
 
-	return string(playlist.ID), nil
+	return playlist.ID, nil
 }
 
-func (b *Builder) Delete(ctx context.Context, userID, name string) error {
+func (r *Registry) Update(ctx context.Context, playlist *Playlist) (spotify.ID, error) {
+	envelope := &PlaylistEnvelope{
+		Playlist: playlist,
+		Tracks:   make(pq.StringArray, len(playlist.TrackIDs)),
+	}
+
+	for idx, track := range playlist.TrackIDs {
+		envelope.Tracks[idx] = string(track)
+	}
+
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
+		query := `
+		UPDATE playlists SET
+			id = :id,
+			description = :description,
+			tracks = :tracks,
+			snapshot_id = :snapshot_id
+		WHERE user_id = :user_id AND name = :name
+		RETURNING id
+		`
+		stmt, err := tx.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return err
+		}
+		row := stmt.QueryRowxContext(ctx, envelope)
+		return row.Scan(&playlist.ID)
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return "", ErrPlaylistNotFound
+		default:
+			return "", err
+		}
+	}
+
+	return playlist.ID, nil
+}
+
+func (r *Registry) Delete(ctx context.Context, userID, name string) error {
 	var id string
-	err := b.database.Transact(ctx, func(tx *sqlx.Tx) error {
+	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
 		DELETE FROM playlists
 		WHERE user_id = $1 AND name = $2

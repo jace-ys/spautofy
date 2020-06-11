@@ -113,13 +113,7 @@ func (r *Registry) CreateOrUpdate(ctx context.Context, account *Account) (string
 		return row.Scan(&account.UserID)
 	})
 	if err != nil {
-		var pqErr *pq.Error
-		switch {
-		case errors.As(err, &pqErr) && pqErr.Code.Name() == "unique_violation":
-			return "", ErrAccountExists
-		default:
-			return "", err
-		}
+		return "", err
 	}
 
 	return account.UserID, nil

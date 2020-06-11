@@ -2,7 +2,6 @@ package spautofy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -62,16 +61,9 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 		user := users.NewUser(spotifyUser, token)
 		userID, err := h.users.CreateOrUpdate(r.Context(), user)
 		if err != nil {
-			switch {
-			case errors.Is(err, users.ErrUserExists):
-				userID = spotifyUser.ID
-			default:
-				h.logger.Log("event", "user.upsert.failed", "error", err)
-				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
-				return
-			}
-		} else {
-			h.logger.Log("event", "user.created", "user", userID)
+			h.logger.Log("event", "user.upsert.failed", "error", err)
+			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+			return
 		}
 
 		values := map[interface{}]interface{}{

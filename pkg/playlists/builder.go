@@ -2,10 +2,10 @@ package playlists
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/jace-ys/go-library/postgres"
 	"github.com/zmb3/spotify"
 
 	"github.com/jace-ys/spautofy/pkg/users"
@@ -17,103 +17,114 @@ const (
 	TimerangeLong   string = "long"
 )
 
-type Builder struct {
+type BuilderFactory struct {
 	logger        log.Logger
-	database      *postgres.Client
+	registry      *Registry
 	users         *users.Registry
 	authenticator *spotify.Authenticator
-	client        *spotify.Client
 }
 
-func NewBuilder(logger log.Logger, postgres *postgres.Client, users *users.Registry, authenticator *spotify.Authenticator) *Builder {
-	return &Builder{
+func NewBuilderFactory(logger log.Logger, registry *Registry, users *users.Registry, authenticator *spotify.Authenticator) *BuilderFactory {
+	return &BuilderFactory{
 		logger:        logger,
-		database:      postgres,
+		registry:      registry,
 		users:         users,
 		authenticator: authenticator,
 	}
 }
 
-func (b *Builder) Run(userID string, trackLimit int, withEmail bool) func() {
-	return func() {
-		logger := log.With(b.logger, "user", userID, "email", withEmail)
-		logger.Log("event", "playlist.create.started")
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		user, err := b.users.Get(ctx, userID)
-		if err != nil {
-			logger.Log("event", "user.get.failed", "error", err)
-			return
-		}
-
-		err = b.ensureClient(ctx, user)
-		if err != nil {
-			logger.Log("event", "client.ensure.failed", "error", err)
-			return
-		}
-
-		playlist, err := b.BuildPlaylist(user, trackLimit, TimerangeShort, withEmail)
-		if err != nil {
-			logger.Log("event", "playlist.build.failed", "error", err)
-			return
-		}
-
-		id, err := b.Create(ctx, playlist)
-		if err != nil {
-			logger.Log("event", "playlist.create.failed", "error", err)
-			return
-		}
-
-		logger.Log("event", "playlist.create.finished", "id", id)
-	}
+type Builder struct {
+	logger   log.Logger
+	registry *Registry
+	client   *spotify.Client
+	userID   string
 }
 
-func (b *Builder) ensureClient(ctx context.Context, user *users.User) error {
-	client := b.authenticator.NewClient(user.Token)
+func (bf *BuilderFactory) NewBuilder(ctx context.Context, userID string) (*Builder, error) {
+	client, err := bf.ensureClient(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Builder{
+		logger:   log.With(bf.logger, "user", userID),
+		registry: bf.registry,
+		client:   client,
+		userID:   userID,
+	}, nil
+}
+
+func (bf *BuilderFactory) ensureClient(ctx context.Context, userID string) (*spotify.Client, error) {
+	user, err := bf.users.Get(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	client := bf.authenticator.NewClient(user.Token)
 
 	if time.Now().Sub(user.Token.Expiry) > 0 {
 		var err error
 		user.Token, err = client.Token()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		_, err = b.users.Update(ctx, user)
+		_, err = bf.users.Update(ctx, user)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		client = b.authenticator.NewClient(user.Token)
+		client = bf.authenticator.NewClient(user.Token)
 	}
 
-	b.client = &client
-	return nil
+	return &client, nil
 }
 
-func (b *Builder) BuildPlaylist(user *users.User, limit int, timerange string, withEmail bool) (*Playlist, error) {
+func (b *Builder) Run(trackLimit int, withEmail bool) func() {
+	return func() {
+		b.logger.Log("event", "playlist.build.started", "limit", trackLimit, "email", withEmail)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		playlist, err := b.NewPlaylist(trackLimit, TimerangeShort)
+		if err != nil {
+			b.logger.Log("event", "playlist.new.failed", "error", err)
+			return
+		}
+
+		id, err := b.registry.Create(ctx, playlist)
+		if err != nil {
+			b.logger.Log("event", "playlist.create.failed", "error", err)
+			return
+		}
+
+		if withEmail {
+			// TODO: send email with playlist data
+		} else {
+			err = b.Build(playlist)
+			if err != nil {
+				b.logger.Log("event", "playlist.build.failed", "error", err)
+				return
+			}
+
+			id, err = b.registry.Update(ctx, playlist)
+			if err != nil {
+				b.logger.Log("event", "playlist.update.failed", "error", err)
+				return
+			}
+		}
+
+		b.logger.Log("event", "playlist.build.finished", "id", id)
+	}
+}
+
+func (b *Builder) NewPlaylist(limit int, timerange string) (*Playlist, error) {
 	opts := &spotify.Options{
 		Limit:     &limit,
 		Timerange: &timerange,
 	}
 
-	trackIDs, err := b.getTrackIDs(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	playlist := NewPlaylist(user.ID, trackIDs)
-
-	if withEmail {
-		// TODO: send email with playlist data
-		return playlist, nil
-	}
-
-	return playlist, b.buildPlaylist(playlist)
-}
-
-func (b *Builder) getTrackIDs(opts *spotify.Options) ([]spotify.ID, error) {
 	tracks, err := b.client.CurrentUsersTopTracksOpt(opts)
 	if err != nil {
 		return nil, err
@@ -124,10 +135,15 @@ func (b *Builder) getTrackIDs(opts *spotify.Options) ([]spotify.ID, error) {
 		trackIDs[idx] = track.ID
 	}
 
-	return trackIDs, nil
+	return &Playlist{
+		UserID:      b.userID,
+		Name:        time.Now().Format("Jan 2006"),
+		Description: "A playlist put together for you by Spautofy based on your recent top tracks.",
+		TrackIDs:    trackIDs,
+	}, nil
 }
 
-func (b *Builder) buildPlaylist(playlist *Playlist) error {
+func (b *Builder) Build(playlist *Playlist) error {
 	spotifyPlaylist, err := b.client.CreatePlaylistForUser(playlist.UserID, playlist.Name, playlist.Description, false)
 	if err != nil {
 		return err
@@ -142,4 +158,38 @@ func (b *Builder) buildPlaylist(playlist *Playlist) error {
 	playlist.SnapshotID = snapshotID
 
 	return nil
+}
+
+type Track struct {
+	ID         spotify.ID
+	Name       string
+	Artists    string
+	Album      string
+	PreviewURL string
+}
+
+func (b *Builder) FetchTracks(trackIDs []spotify.ID) ([]*Track, error) {
+	spotifyTracks, err := b.client.GetTracks(trackIDs...)
+	if err != nil {
+		return nil, err
+	}
+
+	tracks := make([]*Track, len(spotifyTracks))
+	for i, track := range spotifyTracks {
+		tracks[i] = &Track{
+			ID:         track.ID,
+			Name:       track.Name,
+			Album:      track.Album.Name,
+			PreviewURL: track.PreviewURL,
+		}
+
+		artists := make([]string, len(track.Artists))
+		for j, artist := range track.Artists {
+			artists[j] = artist.Name
+		}
+
+		tracks[i].Artists = strings.Join(artists, ", ")
+	}
+
+	return tracks, nil
 }

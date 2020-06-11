@@ -34,8 +34,8 @@ func (s *Session) GetID() string {
 }
 
 type Manager struct {
+	store sessions.Store
 	name  string
-	store *sessions.CookieStore
 }
 
 func NewManager(name, key string, duration time.Duration) *Manager {
@@ -47,8 +47,8 @@ func NewManager(name, key string, duration time.Duration) *Manager {
 	}
 
 	return &Manager{
-		name:  name,
 		store: store,
+		name:  name,
 	}
 }
 

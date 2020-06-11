@@ -10,7 +10,6 @@ import (
 
 	"github.com/jace-ys/spautofy/pkg/accounts"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
-	"github.com/jace-ys/spautofy/pkg/users"
 )
 
 func (h *Handler) updateAccount() http.HandlerFunc {
@@ -41,7 +40,14 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 			}
 		}
 
-		cmd := h.playlists.Run(userID, account.TrackLimit, account.WithEmail)
+		builder, err := h.builder.NewBuilder(r.Context(), userID)
+		if err != nil {
+			h.logger.Log("event", "builder.new.failed", "error", err)
+			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+			return
+		}
+
+		cmd := builder.Run(account.TrackLimit, account.WithEmail)
 
 		schedule := scheduler.NewSchedule(userID, account.Schedule, cmd)
 		scheduleID, err := h.scheduler.Create(r.Context(), schedule)
@@ -84,10 +90,10 @@ func (h *Handler) deleteAccount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := mux.Vars(r)["userID"]
 
-		err := h.users.Delete(r.Context(), userID)
+		err := h.scheduler.Delete(r.Context(), userID)
 		if err != nil {
 			switch {
-			case errors.Is(err, users.ErrUserNotFound):
+			case errors.Is(err, scheduler.ErrScheduleNotFound):
 				h.renderError(http.StatusNotFound).ServeHTTP(w, r)
 				return
 			default:
@@ -97,7 +103,21 @@ func (h *Handler) deleteAccount() http.HandlerFunc {
 			}
 		}
 
-		http.Redirect(w, r, "/logout", http.StatusFound)
+		err = h.accounts.Delete(r.Context(), userID)
+		if err != nil {
+			switch {
+			case errors.Is(err, accounts.ErrAccountNotFound):
+				h.renderError(http.StatusNotFound).ServeHTTP(w, r)
+				return
+			default:
+				h.logger.Log("event", "account.delete.failed", "error", err)
+				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+				return
+			}
+		}
+
+		w.Header().Set("Location", fmt.Sprintf("/accounts/%s", userID))
+		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "account.deleted", "user", userID)
 	}

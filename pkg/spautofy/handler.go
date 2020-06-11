@@ -33,7 +33,8 @@ type Handler struct {
 	users         *users.Registry
 	accounts      *accounts.Registry
 	scheduler     *scheduler.Scheduler
-	playlists     *playlists.Builder
+	playlists     *playlists.Registry
+	builder       *playlists.BuilderFactory
 	authenticator *spotify.Authenticator
 	sessions      *sessions.Manager
 }
@@ -49,12 +50,13 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 		users:         users.NewRegistry(postgres),
 		accounts:      accounts.NewRegistry(postgres),
 		scheduler:     scheduler.NewScheduler(logger, postgres),
+		playlists:     playlists.NewRegistry(postgres),
 		authenticator: &authenticator,
 		sessions:      sessions.NewManager("spautofy_session", cfg.SessionKey, time.Hour),
 	}
 
 	handler.server.Handler = handler.router()
-	handler.playlists = playlists.NewBuilder(logger, postgres, handler.users, handler.authenticator)
+	handler.builder = playlists.NewBuilderFactory(logger, handler.playlists, handler.users, handler.authenticator)
 
 	return handler
 }
@@ -62,7 +64,7 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 func (h *Handler) router() http.Handler {
 	router := mux.NewRouter()
 
-	staticAssets := &assetfs.AssetFS{Asset: static.Asset, AssetDir: static.AssetDir, AssetInfo: static.AssetInfo, Prefix: "static"}
+	staticAssets := &assetfs.AssetFS{Asset: static.Asset, AssetDir: static.AssetDir, AssetInfo: static.AssetInfo}
 	router.PathPrefix("/static").Handler(http.FileServer(staticAssets))
 
 	router.HandleFunc("/", h.renderIndex()).Methods(http.MethodGet)
@@ -78,6 +80,7 @@ func (h *Handler) router() http.Handler {
 
 	playlists := accounts.PathPrefix("/playlists/{playlistName}").Subrouter()
 	playlists.HandleFunc("", h.renderPlaylist()).Methods(http.MethodGet)
+	playlists.HandleFunc("", h.createPlaylist()).Methods(http.MethodPost)
 
 	router.NotFoundHandler = http.HandlerFunc(h.renderError(http.StatusNotFound))
 
@@ -142,8 +145,13 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 			return idx, err
 		}
 
+		builder, err := h.builder.NewBuilder(ctx, account.UserID)
+		if err != nil {
+			return idx, err
+		}
+
 		schedule.Spec = account.Schedule
-		schedule.Cmd = h.playlists.Run(account.UserID, account.TrackLimit, account.WithEmail)
+		schedule.Cmd = builder.Run(account.TrackLimit, account.WithEmail)
 
 		_, err = h.scheduler.Create(ctx, schedule)
 		if err != nil {

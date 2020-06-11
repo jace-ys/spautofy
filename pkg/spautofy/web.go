@@ -51,6 +51,7 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 		}
 
 		userID := mux.Vars(r)["userID"]
+
 		user, err := h.users.Get(r.Context(), userID)
 		if err != nil {
 			switch {
@@ -112,9 +113,16 @@ func (h *Handler) renderPlaylist() http.HandlerFunc {
 			}
 		}
 
+		builder, err := h.builder.NewBuilder(r.Context(), playlist.UserID)
+		if err != nil {
+			h.logger.Log("event", "builder.new.failed", "error", err)
+			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+			return
+		}
+
 		data.UserID = playlist.UserID
 		data.Name = playlist.Name
-		data.Tracks, err = h.playlists.FetchTracks(r.Context(), playlist.UserID, playlist.TrackIDs)
+		data.Tracks, err = builder.FetchTracks(playlist.TrackIDs)
 		if err != nil {
 			h.logger.Log("event", "tracks.fetch.failed", "error", err)
 			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
