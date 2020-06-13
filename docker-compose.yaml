@@ -8,13 +8,13 @@ services:
       - 8080:8080
     env_file: ./.env
     environment:
+      HOSTNAME: localhost:8080
       PORT: 8080
       POSTGRES_DB: spautofy
       POSTGRES_HOST: postgres:5432
       POSTGRES_PASSWORD: spautofy
       POSTGRES_USER: spautofy
-      REDIRECT_HOST: localhost:8080
-      SESSION_KEY: spautofy
+      SESSION_STORE_KEY: spautofy
 
   postgres:
     image: postgres:12.2-alpine

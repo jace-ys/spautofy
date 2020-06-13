@@ -2,12 +2,14 @@ package playlists
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/zmb3/spotify"
 
+	"github.com/jace-ys/spautofy/pkg/mail"
 	"github.com/jace-ys/spautofy/pkg/users"
 )
 
@@ -18,15 +20,17 @@ const (
 )
 
 type BuilderFactory struct {
-	logger        log.Logger
+	hostname      string
+	mailer        mail.Mailer
 	registry      *Registry
 	users         *users.Registry
 	authenticator *spotify.Authenticator
 }
 
-func NewBuilderFactory(logger log.Logger, registry *Registry, users *users.Registry, authenticator *spotify.Authenticator) *BuilderFactory {
+func NewBuilderFactory(hostname string, mailer mail.Mailer, registry *Registry, users *users.Registry, authenticator *spotify.Authenticator) *BuilderFactory {
 	return &BuilderFactory{
-		logger:        logger,
+		hostname:      hostname,
+		mailer:        mailer,
 		registry:      registry,
 		users:         users,
 		authenticator: authenticator,
@@ -34,32 +38,36 @@ func NewBuilderFactory(logger log.Logger, registry *Registry, users *users.Regis
 }
 
 type Builder struct {
+	hostname string
 	logger   log.Logger
+	mailer   mail.Mailer
 	registry *Registry
 	client   *spotify.Client
-	userID   string
+	user     *users.User
 }
 
-func (bf *BuilderFactory) NewBuilder(ctx context.Context, userID string) (*Builder, error) {
-	client, err := bf.ensureClient(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Builder{
-		logger:   log.With(bf.logger, "user", userID),
-		registry: bf.registry,
-		client:   client,
-		userID:   userID,
-	}, nil
-}
-
-func (bf *BuilderFactory) ensureClient(ctx context.Context, userID string) (*spotify.Client, error) {
+func (bf *BuilderFactory) NewBuilder(ctx context.Context, logger log.Logger, userID string) (*Builder, error) {
 	user, err := bf.users.Get(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
+	client, err := bf.ensureClient(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Builder{
+		hostname: bf.hostname,
+		logger:   log.With(logger, "user", userID),
+		mailer:   bf.mailer,
+		registry: bf.registry,
+		client:   client,
+		user:     user,
+	}, nil
+}
+
+func (bf *BuilderFactory) ensureClient(ctx context.Context, user *users.User) (*spotify.Client, error) {
 	client := bf.authenticator.NewClient(user.Token)
 
 	if time.Now().Sub(user.Token.Expiry) > 0 {
@@ -80,9 +88,9 @@ func (bf *BuilderFactory) ensureClient(ctx context.Context, userID string) (*spo
 	return &client, nil
 }
 
-func (b *Builder) Run(trackLimit int, withEmail bool) func() {
+func (b *Builder) Run(trackLimit int, withConfirm bool) func() {
 	return func() {
-		b.logger.Log("event", "playlist.build.started", "limit", trackLimit, "email", withEmail)
+		b.logger.Log("event", "playlist.build.started", "limit", trackLimit, "confirm", withConfirm)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -99,8 +107,9 @@ func (b *Builder) Run(trackLimit int, withEmail bool) func() {
 			return
 		}
 
-		if withEmail {
-			// TODO: send email with playlist data
+		var playlistURL string
+		if withConfirm {
+			playlistURL = fmt.Sprintf("http://%s/accounts/%s/playlists/%s", b.hostname, b.user.ID, playlist.Name)
 		} else {
 			err = b.Build(playlist)
 			if err != nil {
@@ -113,9 +122,19 @@ func (b *Builder) Run(trackLimit int, withEmail bool) func() {
 				b.logger.Log("event", "playlist.update.failed", "error", err)
 				return
 			}
+
+			playlistURL = fmt.Sprintf("http://open.spotify.com/playlist/%s", playlist.ID)
 		}
 
 		b.logger.Log("event", "playlist.build.finished", "id", id)
+
+		err = b.mailer.SendNewPlaylistEmail(b.user, withConfirm, playlistURL)
+		if err != nil {
+			b.logger.Log("event", "email.send.failed", "error", err)
+			return
+		}
+
+		b.logger.Log("event", "email.sent", "email", b.user.Email)
 	}
 }
 
@@ -136,7 +155,7 @@ func (b *Builder) NewPlaylist(limit int, timerange string) (*Playlist, error) {
 	}
 
 	return &Playlist{
-		UserID:      b.userID,
+		UserID:      b.user.ID,
 		Name:        time.Now().Format("Jan 2006"),
 		Description: "A playlist put together for you by Spautofy based on your recent top tracks.",
 		TrackIDs:    trackIDs,

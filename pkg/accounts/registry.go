@@ -17,19 +17,19 @@ var (
 )
 
 type Account struct {
-	UserID     string
-	Schedule   string
-	TrackLimit int
-	WithEmail  bool
-	CreatedAt  time.Time
+	UserID      string
+	Schedule    string
+	TrackLimit  int
+	WithConfirm bool
+	CreatedAt   time.Time
 }
 
-func NewAccount(userID, schedule string, trackLimit int, withEmail bool) *Account {
+func NewAccount(userID, schedule string, trackLimit int, withConfirm bool) *Account {
 	return &Account{
-		UserID:     userID,
-		Schedule:   schedule,
-		TrackLimit: trackLimit,
-		WithEmail:  withEmail,
+		UserID:      userID,
+		Schedule:    schedule,
+		TrackLimit:  trackLimit,
+		WithConfirm: withConfirm,
 	}
 }
 
@@ -47,7 +47,7 @@ func (r *Registry) Get(ctx context.Context, userID string) (*Account, error) {
 	var account Account
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT user_id, schedule, track_limit, with_email, created_at
+		SELECT user_id, schedule, track_limit, with_confirm, created_at
 		FROM accounts
 		WHERE user_id = $1
 		`
@@ -69,8 +69,8 @@ func (r *Registry) Get(ctx context.Context, userID string) (*Account, error) {
 func (r *Registry) Create(ctx context.Context, account *Account) (string, error) {
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		INSERT INTO accounts (user_id, schedule, track_limit, with_email)
-		VALUES (:user_id, :schedule, :track_limit, :with_email)
+		INSERT INTO accounts (user_id, schedule, track_limit, with_confirm)
+		VALUES (:user_id, :schedule, :track_limit, :with_confirm)
 		RETURNING user_id
 		`
 		stmt, err := tx.PrepareNamedContext(ctx, query)
@@ -96,13 +96,13 @@ func (r *Registry) Create(ctx context.Context, account *Account) (string, error)
 func (r *Registry) CreateOrUpdate(ctx context.Context, account *Account) (string, error) {
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		INSERT INTO accounts (user_id, schedule, track_limit, with_email)
-		VALUES (:user_id, :schedule, :track_limit, :with_email)
+		INSERT INTO accounts (user_id, schedule, track_limit, with_confirm)
+		VALUES (:user_id, :schedule, :track_limit, :with_confirm)
 		ON CONFLICT (user_id)
 		DO UPDATE SET
 			schedule = EXCLUDED.schedule,
 			track_limit = EXCLUDED.track_limit,
-			with_email = EXCLUDED.with_email
+			with_confirm = EXCLUDED.with_confirm
 		RETURNING user_id
 		`
 		stmt, err := tx.PrepareNamedContext(ctx, query)
@@ -125,7 +125,7 @@ func (r *Registry) Update(ctx context.Context, account *Account) (string, error)
 		UPDATE accounts SET
 			schedule = :schedule,
 			track_limit = :track_limit,
-			with_email = :with_email,
+			with_confirm = :with_confirm,
 		WHERE user_id = :user_id
 		RETURNING user_id
 		`

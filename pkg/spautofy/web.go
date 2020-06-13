@@ -39,15 +39,15 @@ func (h *Handler) renderIndex() http.HandlerFunc {
 func (h *Handler) renderAccount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
-			User       *spotify.PrivateUser
-			Frequency  int
-			TrackLimit int
-			WithEmail  bool
-			Next       time.Time
+			User        *spotify.PrivateUser
+			Frequency   int
+			TrackLimit  int
+			WithConfirm bool
+			Next        time.Time
 		}{
-			WithEmail:  true,
-			TrackLimit: 20,
-			Frequency:  12,
+			WithConfirm: true,
+			TrackLimit:  20,
+			Frequency:   12,
 		}
 
 		userID := mux.Vars(r)["userID"]
@@ -79,7 +79,7 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 		} else {
 			data.Frequency = scheduler.SpecToFrequency(account.Schedule)
 			data.TrackLimit = account.TrackLimit
-			data.WithEmail = account.WithEmail
+			data.WithConfirm = account.WithConfirm
 			data.Next = scheduler.GetNext(account.Schedule)
 		}
 
@@ -113,7 +113,7 @@ func (h *Handler) renderPlaylist() http.HandlerFunc {
 			}
 		}
 
-		builder, err := h.builder.NewBuilder(r.Context(), playlist.UserID)
+		builder, err := h.builder.NewBuilder(r.Context(), h.logger, playlist.UserID)
 		if err != nil {
 			h.logger.Log("event", "builder.new.failed", "error", err)
 			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)

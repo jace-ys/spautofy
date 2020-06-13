@@ -9,10 +9,11 @@ import (
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
-	"github.com/jace-ys/go-library/postgres"
 	"github.com/zmb3/spotify"
 
+	"github.com/jace-ys/go-library/postgres"
 	"github.com/jace-ys/spautofy/pkg/accounts"
+	"github.com/jace-ys/spautofy/pkg/mail"
 	"github.com/jace-ys/spautofy/pkg/playlists"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/sessions"
@@ -21,10 +22,15 @@ import (
 )
 
 type Config struct {
+	Hostname        string
+	SessionStoreKey string
+	Spotify         SpotifyConfig
+	SendGrid        mail.SendGridConfig
+}
+
+type SpotifyConfig struct {
 	ClientID     string
-	Secret       string
-	RedirectHost string
-	SessionKey   string
+	ClientSecret string
 }
 
 type Handler struct {
@@ -40,9 +46,9 @@ type Handler struct {
 }
 
 func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Handler {
-	redirectURL := fmt.Sprintf("http://%s/login/callback", cfg.RedirectHost)
+	redirectURL := fmt.Sprintf("http://%s/login/callback", cfg.Hostname)
 	authenticator := spotify.NewAuthenticator(redirectURL, scopes...)
-	authenticator.SetAuthInfo(cfg.ClientID, cfg.Secret)
+	authenticator.SetAuthInfo(cfg.Spotify.ClientID, cfg.Spotify.ClientSecret)
 
 	handler := &Handler{
 		logger:        logger,
@@ -52,11 +58,13 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 		scheduler:     scheduler.NewScheduler(logger, postgres),
 		playlists:     playlists.NewRegistry(postgres),
 		authenticator: &authenticator,
-		sessions:      sessions.NewManager("spautofy_session", cfg.SessionKey, time.Hour),
+		sessions:      sessions.NewManager("spautofy_session", cfg.SessionStoreKey, time.Hour),
 	}
 
 	handler.server.Handler = handler.router()
-	handler.builder = playlists.NewBuilderFactory(logger, handler.playlists, handler.users, handler.authenticator)
+
+	mailer := mail.NewSendGridMailer(&cfg.SendGrid)
+	handler.builder = playlists.NewBuilderFactory(cfg.Hostname, mailer, handler.playlists, handler.users, handler.authenticator)
 
 	return handler
 }
@@ -145,13 +153,13 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 			return idx, err
 		}
 
-		builder, err := h.builder.NewBuilder(ctx, account.UserID)
+		builder, err := h.builder.NewBuilder(ctx, h.logger, account.UserID)
 		if err != nil {
 			return idx, err
 		}
 
 		schedule.Spec = account.Schedule
-		schedule.Cmd = builder.Run(account.TrackLimit, account.WithEmail)
+		schedule.Cmd = builder.Run(account.TrackLimit, account.WithConfirm)
 
 		_, err = h.scheduler.Create(ctx, schedule)
 		if err != nil {

@@ -40,14 +40,14 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 			}
 		}
 
-		builder, err := h.builder.NewBuilder(r.Context(), userID)
+		builder, err := h.builder.NewBuilder(r.Context(), h.logger, userID)
 		if err != nil {
 			h.logger.Log("event", "builder.new.failed", "error", err)
 			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 			return
 		}
 
-		cmd := builder.Run(account.TrackLimit, account.WithEmail)
+		cmd := builder.Run(account.TrackLimit, account.WithConfirm)
 
 		schedule := scheduler.NewSchedule(userID, account.Schedule, cmd)
 		scheduleID, err := h.scheduler.Create(r.Context(), schedule)
@@ -80,9 +80,9 @@ func (h *Handler) parseAccountForm(r *http.Request) (*accounts.Account, error) {
 		return nil, err
 	}
 
-	_, withEmail := r.PostForm["email"]
+	_, withConfirm := r.PostForm["confirm"]
 
-	account := accounts.NewAccount(mux.Vars(r)["userID"], scheduler.FrequencyToSpec(frequency), limit, withEmail)
+	account := accounts.NewAccount(mux.Vars(r)["userID"], scheduler.FrequencyToSpec(frequency), limit, withConfirm)
 	return account, nil
 }
 

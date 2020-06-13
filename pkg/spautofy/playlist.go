@@ -38,7 +38,7 @@ func (h *Handler) createPlaylist() http.HandlerFunc {
 		playlist.TrackIDs = tracks
 
 		if playlist.SnapshotID == "" {
-			builder, err := h.builder.NewBuilder(r.Context(), playlist.UserID)
+			builder, err := h.builder.NewBuilder(r.Context(), h.logger, playlist.UserID)
 			if err != nil {
 				h.logger.Log("event", "builder.new.failed", "error", err)
 				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
