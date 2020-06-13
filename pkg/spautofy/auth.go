@@ -114,7 +114,7 @@ func (h *Handler) middlewareAuthenticate(next http.Handler) http.Handler {
 
 		userID, ok := session.Values["userID"].(string)
 		if !ok {
-			h.renderError(http.StatusUnauthorized).ServeHTTP(w, r)
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 
