@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/jace-ys/go-library/postgres"
@@ -151,4 +152,23 @@ func (s *Scheduler) Delete(ctx context.Context, userID string) error {
 
 	s.runner.Remove(id)
 	return nil
+}
+
+type Entry struct {
+	ID   cron.EntryID `json:"id"`
+	Next time.Time    `json:"next"`
+	Prev time.Time    `json:"prev"`
+}
+
+func (s *Scheduler) ListCronEntries() []*Entry {
+	entries := make([]*Entry, len(s.runner.Entries()))
+	for idx, entry := range s.runner.Entries() {
+		entries[idx] = &Entry{
+			ID:   entry.ID,
+			Next: entry.Next,
+			Prev: entry.Prev,
+		}
+	}
+
+	return entries
 }

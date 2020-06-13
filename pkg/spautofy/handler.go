@@ -2,13 +2,16 @@ package spautofy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
+	"github.com/etherlabsio/healthcheck"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/zmb3/spotify"
 
 	"github.com/jace-ys/go-library/postgres"
@@ -36,6 +39,8 @@ type SpotifyConfig struct {
 type Handler struct {
 	logger        log.Logger
 	server        *http.Server
+	metrics       *http.Server
+	database      *postgres.Client
 	users         *users.Registry
 	accounts      *accounts.Registry
 	scheduler     *scheduler.Scheduler
@@ -53,6 +58,8 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 	handler := &Handler{
 		logger:        logger,
 		server:        &http.Server{},
+		metrics:       &http.Server{},
+		database:      postgres,
 		users:         users.NewRegistry(postgres),
 		accounts:      accounts.NewRegistry(postgres),
 		scheduler:     scheduler.NewScheduler(logger, postgres),
@@ -102,6 +109,46 @@ func (h *Handler) StartServer(port int) error {
 	h.server.Addr = fmt.Sprintf(":%d", port)
 	if err := h.server.ListenAndServe(); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
+	}
+
+	return nil
+}
+
+func (h *Handler) StartMetricsServer(port int) error {
+	h.logger.Log("event", "metrics.started", "port", port)
+	defer h.logger.Log("event", "metrics.stopped")
+
+	router := mux.NewRouter()
+
+	router.Handle("/metrics", promhttp.Handler())
+
+	router.Handle("/health", healthcheck.Handler(
+		healthcheck.WithChecker(
+			"database", healthcheck.CheckerFunc(
+				func(ctx context.Context) error {
+					return h.database.DB.DB.PingContext(ctx)
+				},
+			),
+		),
+	))
+
+	router.HandleFunc("/crons", func(w http.ResponseWriter, r *http.Request) {
+		entries := h.scheduler.ListCronEntries()
+
+		data, err := json.Marshal(entries)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+		}
+
+		w.Write(data)
+	})
+
+	h.metrics.Handler = router
+	h.metrics.Addr = fmt.Sprintf(":%d", port)
+
+	if err := h.metrics.ListenAndServe(); err != nil {
+		return fmt.Errorf("failed to start metrics server: %w", err)
 	}
 
 	return nil
@@ -173,6 +220,10 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 func (h *Handler) Shutdown(ctx context.Context) error {
 	if err := h.server.Shutdown(ctx); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
+	}
+
+	if err := h.metrics.Shutdown(ctx); err != nil {
+		return fmt.Errorf("failed to shutdown metrics server: %w", err)
 	}
 
 	if err := h.scheduler.Stop(); err != nil {

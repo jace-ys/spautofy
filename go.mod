@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
 	github.com/elazarl/go-bindata-assetfs v1.0.0
+	github.com/etherlabsio/healthcheck v0.0.0-20191224061800-dd3d2fd8c3f6
 	github.com/go-kit/kit v0.10.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
@@ -12,6 +13,7 @@ require (
 	github.com/jace-ys/go-library v0.0.0-20200528164408-2198085d8946
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lib/pq v1.7.0
+	github.com/prometheus/client_golang v1.3.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sendgrid/rest v2.6.0+incompatible // indirect
 	github.com/sendgrid/sendgrid-go v3.6.0+incompatible
