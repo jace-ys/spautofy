@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/sessions v1.2.0
-	github.com/jace-ys/go-library v0.0.0-20200528164408-2198085d8946
+	github.com/jace-ys/go-library v0.0.0-20200614003242-116803f3acbb
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lib/pq v1.7.0
 	github.com/prometheus/client_golang v1.3.0

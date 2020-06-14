@@ -8,12 +8,9 @@ services:
       - 8080:8080
     env_file: ./.env
     environment:
+      DATABASE_URL: postgres://spautofy:spautofy@postgres:5432/spautofy?sslmode=disable
       HOSTNAME: localhost:8080
       PORT: 8080
-      POSTGRES_DB: spautofy
-      POSTGRES_HOST: postgres:5432
-      POSTGRES_PASSWORD: spautofy
-      POSTGRES_USER: spautofy
       SESSION_STORE_KEY: spautofy
 
   postgres:
@@ -31,13 +28,10 @@ services:
       - wait-for
       - postgres:5432
       - --
-      - /postgres/run-migrations.sh
+      - /run-migrations.sh
     environment:
-      MIGRATIONS_DIR: /postgres/migrations
-      POSTGRES_DB: spautofy
-      POSTGRES_HOST: postgres:5432
-      POSTGRES_PASSWORD: spautofy
-      POSTGRES_USER: spautofy
+      DATABASE_URL: postgres://spautofy:spautofy@postgres:5432/spautofy?sslmode=disable
     volumes:
       - ./bin/wait-for:/usr/local/bin/wait-for
-      - ./databases/postgres:/postgres
+      - ./databases/postgres/migrations:/migrations
+      - ./databases/postgres/run-migrations.sh:/run-migrations.sh

@@ -20,7 +20,7 @@ func main() {
 	logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 
-	postgres, err := postgres.NewClient(c.database.Host, c.database.User, c.database.Password, c.database.Database)
+	postgres, err := postgres.NewClient(c.database.ConnectionURL)
 	if err != nil {
 		exit(err)
 	}
@@ -76,10 +76,7 @@ func parseCommand() *config {
 	kingpin.Flag("sendgrid-sender-name", "Name to use when sending mail via SendGrid.").Envar("SENDGRID_SENDER_NAME").Default("Spautofy").StringVar(&c.spautofy.SendGrid.SenderName)
 	kingpin.Flag("sendgrid-sender-email", "Email to use when sending mail via SendGrid.").Envar("SENDGRID_SENDER_EMAIL").Required().StringVar(&c.spautofy.SendGrid.SenderEmail)
 	kingpin.Flag("sendgrid-template-id", "Template ID to use when sending mail via SendGrid.").Envar("SENDGRID_TEMPLATE_ID").Required().StringVar(&c.spautofy.SendGrid.TemplateID)
-	kingpin.Flag("postgres-host", "Host for connecting to Postgres.").Envar("POSTGRES_HOST").Default("127.0.0.1:5432").StringVar(&c.database.Host)
-	kingpin.Flag("postgres-user", "User for connecting to Postgres.").Envar("POSTGRES_USER").Default("postgres").StringVar(&c.database.User)
-	kingpin.Flag("postgres-password", "Password for connecting to Postgres.").Envar("POSTGRES_PASSWORD").Required().StringVar(&c.database.Password)
-	kingpin.Flag("postgres-db", "Database for connecting to Postgres.").Envar("POSTGRES_DB").Default("postgres").StringVar(&c.database.Database)
+	kingpin.Flag("database-url", "URL for connecting to Postgres.").Envar("DATABASE_URL").Default("127.0.0.1:5432").StringVar(&c.database.ConnectionURL)
 	kingpin.Parse()
 
 	return &c

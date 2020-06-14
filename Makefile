@@ -17,13 +17,10 @@ run:
 		--spotify-client-id ${SPOTIFY_CLIENT_ID} \
 		--spotify-client-secret ${SPOTIFY_CLIENT_SECRET} \
 		--sendgrid-api-key ${SENDGRID_API_KEY} \
-		--sendgrid-sender-name Spautofy \
+		--sendgrid-sender-name ${SENDGRID_SENDER_NAME} \
 		--sendgrid-sender-email ${SENDGRID_SENDER_EMAIL} \
 		--sendgrid-template-id ${SENDGRID_TEMPLATE_ID} \
-		--postgres-host 127.0.0.1:5432 \
-		--postgres-user spautofy \
-		--postgres-password spautofy \
-		--postgres-db spautofy
+		--database-url postgres://spautofy:spautofy@127.0.0.1:5432/spautofy?sslmode=disable
 
 build:
 	@echo "==> Compiling code.."
