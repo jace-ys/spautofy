@@ -4,3 +4,9 @@
 # compiled binaries
 spautofy
 !spautofy/
+
+# terraform
+.terraform
+*.tfstate*
+*.tfstate.*
+*.tfvars

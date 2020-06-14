@@ -1,0 +1,10 @@
+build:
+  docker:
+    web: Dockerfile
+    migrate: databases/postgres/Dockerfile
+release:
+  image: migrate
+  command:
+    - ./run-migrations.sh
+run:
+  web: spautofy
