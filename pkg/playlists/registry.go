@@ -23,6 +23,7 @@ type Playlist struct {
 	Name        string
 	Description string
 	TrackIDs    []spotify.ID
+	SpotifyURL  string
 	SnapshotID  string
 	CreatedAt   time.Time
 }
@@ -46,7 +47,7 @@ func (r *Registry) Get(ctx context.Context, userID, name string) (*Playlist, err
 	var envelope PlaylistEnvelope
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		SELECT id, user_id, name, description, tracks, snapshot_id, created_at
+		SELECT id, user_id, name, description, tracks, spotify_url, snapshot_id, created_at
 		FROM playlists
 		WHERE user_id = $1 AND name = $2
 		`
@@ -82,8 +83,8 @@ func (r *Registry) Create(ctx context.Context, playlist *Playlist) (spotify.ID, 
 
 	err := r.database.Transact(ctx, func(tx *sqlx.Tx) error {
 		query := `
-		INSERT INTO playlists (id, user_id, name, description, tracks, snapshot_id)
-		VALUES (:id, :user_id, :name, :description, :tracks, :snapshot_id)
+		INSERT INTO playlists (id, user_id, name, description, tracks, spotify_url, snapshot_id)
+		VALUES (:id, :user_id, :name, :description, :tracks, :spotify_url, :snapshot_id)
 		RETURNING id
 		`
 		stmt, err := tx.PrepareNamedContext(ctx, query)
@@ -122,6 +123,7 @@ func (r *Registry) Update(ctx context.Context, playlist *Playlist) (spotify.ID, 
 			id = :id,
 			description = :description,
 			tracks = :tracks,
+			spotify_url = :spotify_url,
 			snapshot_id = :snapshot_id
 		WHERE user_id = :user_id AND name = :name
 		RETURNING id

@@ -40,7 +40,7 @@ resource "heroku_app_config_association" "spautofy" {
   app_id = heroku_app.main.id
 
   vars = {
-    HOSTNAME = "${heroku_app.main.name}.herokuapp.com"
+    BASE_URL = heroku_app.main.web_url
   }
 
   sensitive_vars = {

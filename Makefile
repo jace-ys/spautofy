@@ -12,7 +12,8 @@ run:
 	@echo "==> Executing code.."
 	@go run ${SOURCE} \
 		--port 8080 \
-		--hostname localhost:8080 \
+		--metrics-port 9090 \
+		--base-url http://localhost:8080 \
 		--session-store-key spautofy \
 		--spotify-client-id ${SPOTIFY_CLIENT_ID} \
 		--spotify-client-secret ${SPOTIFY_CLIENT_SECRET} \

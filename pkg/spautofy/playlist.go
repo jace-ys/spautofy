@@ -2,8 +2,8 @@ package spautofy
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
+	"path"
 
 	"github.com/gorilla/mux"
 	"github.com/zmb3/spotify"
@@ -68,7 +68,7 @@ func (h *Handler) createPlaylist() http.HandlerFunc {
 			h.logger.Log("event", "playlist.built", "user", playlist.UserID, "id", id)
 		}
 
-		w.Header().Set("Location", fmt.Sprintf("/accounts/%s/playlists/%s", playlist.UserID, playlist.Name))
+		w.Header().Set("Location", path.Join("/accounts", playlist.UserID, "playlists", playlist.Name))
 		w.WriteHeader(http.StatusFound)
 	}
 }

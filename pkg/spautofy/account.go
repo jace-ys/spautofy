@@ -2,8 +2,8 @@ package spautofy
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
+	"path"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -57,7 +57,7 @@ func (h *Handler) updateAccount() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Location", fmt.Sprintf("/accounts/%s", userID))
+		w.Header().Set("Location", path.Join("/accounts", userID))
 		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "account.updated", "user", userID, "schedule", scheduleID)
@@ -116,7 +116,7 @@ func (h *Handler) deleteAccount() http.HandlerFunc {
 			}
 		}
 
-		w.Header().Set("Location", fmt.Sprintf("/accounts/%s", userID))
+		w.Header().Set("Location", path.Join("/accounts", userID))
 		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "account.deleted", "user", userID)

@@ -2,7 +2,6 @@ package spautofy
 
 import (
 	"errors"
-	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -129,8 +128,8 @@ func (h *Handler) renderPlaylist() http.HandlerFunc {
 			return
 		}
 
-		if playlist.SnapshotID != "" {
-			data.Link = fmt.Sprintf("https://open.spotify.com/playlist/%s", playlist.ID)
+		if playlist.SpotifyURL != "" {
+			data.Link = playlist.SpotifyURL
 		}
 
 		h.logger.Log("event", "template.rendered", "template", "playlist", "user", userID, "playlist", playlist.Name)

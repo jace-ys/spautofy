@@ -2,8 +2,8 @@ package spautofy
 
 import (
 	"context"
-	"fmt"
 	"net/http"
+	"path"
 
 	"github.com/gorilla/mux"
 	"github.com/zmb3/spotify"
@@ -77,7 +77,7 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Location", fmt.Sprintf("/accounts/%s", spotifyUser.ID))
+		w.Header().Set("Location", path.Join("/accounts", spotifyUser.ID))
 		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "login.finished", "session", session.GetID(), "user", userID)

@@ -68,7 +68,7 @@ func parseCommand() *config {
 
 	kingpin.Flag("port", "Port for the Spautofy server.").Envar("PORT").Default("8080").IntVar(&c.port)
 	kingpin.Flag("metrics-port", "Port for the Spautofy metrics server.").Envar("METRICS_PORT").Default("9090").IntVar(&c.metricsPort)
-	kingpin.Flag("hostname", "Hostname of the Spautofy server that is publicly addressable.").Envar("HOSTNAME").Default("localhost:8080").StringVar(&c.spautofy.Hostname)
+	kingpin.Flag("base-url", "Base URL for accessing the Spautofy server.").Envar("BASE_URL").Default("http://localhost:8080").URLVar(&c.spautofy.BaseURL)
 	kingpin.Flag("session-store-key", "Authentication key used for the session store.").Envar("SESSION_STORE_KEY").Default("spautofy").StringVar(&c.spautofy.SessionStoreKey)
 	kingpin.Flag("spotify-client-id", "Spotify client ID.").Envar("SPOTIFY_CLIENT_ID").Required().StringVar(&c.spautofy.Spotify.ClientID)
 	kingpin.Flag("spotify-client-secret", "Spotify client secret.").Envar("SPOTIFY_CLIENT_SECRET").Required().StringVar(&c.spautofy.Spotify.ClientSecret)

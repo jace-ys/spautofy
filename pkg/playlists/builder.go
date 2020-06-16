@@ -2,7 +2,9 @@ package playlists
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -19,17 +21,21 @@ const (
 	TimerangeLong   string = "long"
 )
 
+var (
+	ErrPlaylistNoSpotifyURL = errors.New("no spotify url found for playlist")
+)
+
 type BuilderFactory struct {
-	hostname      string
+	baseURL       *url.URL
 	mailer        mail.Mailer
 	registry      *Registry
 	users         *users.Registry
 	authenticator *spotify.Authenticator
 }
 
-func NewBuilderFactory(hostname string, mailer mail.Mailer, registry *Registry, users *users.Registry, authenticator *spotify.Authenticator) *BuilderFactory {
+func NewBuilderFactory(baseURL *url.URL, mailer mail.Mailer, registry *Registry, users *users.Registry, authenticator *spotify.Authenticator) *BuilderFactory {
 	return &BuilderFactory{
-		hostname:      hostname,
+		baseURL:       baseURL,
 		mailer:        mailer,
 		registry:      registry,
 		users:         users,
@@ -38,7 +44,7 @@ func NewBuilderFactory(hostname string, mailer mail.Mailer, registry *Registry, 
 }
 
 type Builder struct {
-	hostname string
+	baseURL  *url.URL
 	logger   log.Logger
 	mailer   mail.Mailer
 	registry *Registry
@@ -58,7 +64,7 @@ func (bf *BuilderFactory) NewBuilder(ctx context.Context, logger log.Logger, use
 	}
 
 	return &Builder{
-		hostname: bf.hostname,
+		baseURL:  bf.baseURL,
 		logger:   log.With(logger, "user", userID),
 		mailer:   bf.mailer,
 		registry: bf.registry,
@@ -109,7 +115,9 @@ func (b *Builder) Run(trackLimit int, withConfirm bool) func() {
 
 		var playlistURL string
 		if withConfirm {
-			playlistURL = fmt.Sprintf("http://%s/accounts/%s/playlists/%s", b.hostname, b.user.ID, playlist.Name)
+			spautofyURL := *b.baseURL
+			spautofyURL.Path = path.Join(spautofyURL.Path, "accounts", b.user.ID, "playlists", playlist.Name)
+			playlistURL = spautofyURL.String()
 		} else {
 			err = b.Build(playlist)
 			if err != nil {
@@ -123,7 +131,7 @@ func (b *Builder) Run(trackLimit int, withConfirm bool) func() {
 				return
 			}
 
-			playlistURL = fmt.Sprintf("http://open.spotify.com/playlist/%s", playlist.ID)
+			playlistURL = playlist.SpotifyURL
 		}
 
 		b.logger.Log("event", "playlist.build.finished", "id", id)
@@ -171,6 +179,12 @@ func (b *Builder) Build(playlist *Playlist) error {
 	snapshotID, err := b.client.AddTracksToPlaylist(spotifyPlaylist.ID, playlist.TrackIDs...)
 	if err != nil {
 		return err
+	}
+
+	var ok bool
+	playlist.SpotifyURL, ok = spotifyPlaylist.ExternalURLs["spotify"]
+	if !ok {
+		return ErrPlaylistNoSpotifyURL
 	}
 
 	playlist.ID = spotifyPlaylist.ID

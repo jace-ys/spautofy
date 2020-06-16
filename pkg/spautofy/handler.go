@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
 	"time"
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
@@ -25,7 +27,7 @@ import (
 )
 
 type Config struct {
-	Hostname        string
+	BaseURL         *url.URL
 	SessionStoreKey string
 	Spotify         SpotifyConfig
 	SendGrid        mail.SendGridConfig
@@ -51,8 +53,9 @@ type Handler struct {
 }
 
 func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Handler {
-	redirectURL := fmt.Sprintf("http://%s/login/callback", cfg.Hostname)
-	authenticator := spotify.NewAuthenticator(redirectURL, scopes...)
+	redirectURL := *cfg.BaseURL
+	redirectURL.Path = path.Join(redirectURL.Path, "login/callback")
+	authenticator := spotify.NewAuthenticator(redirectURL.String(), scopes...)
 	authenticator.SetAuthInfo(cfg.Spotify.ClientID, cfg.Spotify.ClientSecret)
 
 	handler := &Handler{
@@ -71,7 +74,7 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 	handler.server.Handler = handler.router()
 
 	mailer := mail.NewSendGridMailer(&cfg.SendGrid)
-	handler.builder = playlists.NewBuilderFactory(cfg.Hostname, mailer, handler.playlists, handler.users, handler.authenticator)
+	handler.builder = playlists.NewBuilderFactory(cfg.BaseURL, mailer, handler.playlists, handler.users, handler.authenticator)
 
 	return handler
 }
