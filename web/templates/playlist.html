@@ -1,20 +1,41 @@
 {{ define "playlist" -}}
 {{ template "header" }}
   <body>
-    <h1>{{ .Name }}</h1>
-    {{ if .Link -}}
-    <a href="{{ .Link }}">Link to playlist</a>
-    {{- else -}}
-    <form action="/accounts/{{ .UserID }}/playlists/{{ .Name }}" method="POST">
-    {{- range .Tracks }}
-      <div>
-        <input type="checkbox" id="{{ .ID }}" name="{{ .ID }}" value="{{ .ID }}" checked/>
-        <label for="{{ .ID }}">{{ .Name }} - {{ .Artists }}</label>
-      </div>
-    {{- end }}
-      <input type="submit" value="Create" />
-    </form>
-    {{- end }}
+    <div id="wrapper">
+      {{- if .Link }}
+      <h3>Your playlist {{ .Name }} has been created! Check it out <a href="{{ .Link }}">here</a>.</h3>
+      {{- else -}}
+      <h2 class="major">{{ .Name }}</h2>
+      <form action="/accounts/{{ .UserID }}/playlists/{{ .Name }}" method="POST">
+        <div class="fields">
+          <div class="field">
+            <ul>
+              {{- range .Tracks }}
+              <li>
+                <input type="checkbox" name="{{ .ID }}" id="{{ .ID }}" value="{{ .ID }}" checked/>
+                <label for="{{ .ID }}">{{ .Name }} - {{ .Artists }}</label>
+              </li>
+              {{- end }}
+            </ul>
+          </div>
+        </div>
+        <ul class="actions center">
+          <li>
+            <input type="submit" value="Create" class="primary" />
+          </li>
+        </ul>
+      </form>
+      {{- end }}
+      <footer id="footer">
+        <p class="copyright">
+          &copy; Spautofy 2020.
+          <a href="https://github.com/jace-ys/spautofy" target="_blank"
+            >View code on GitHub</a
+          >.
+        </p>
+      </footer>
+    </div>
+    <div id="bg"></div>
   </body>
 {{ template "footer" }}
 {{- end }}

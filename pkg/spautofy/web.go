@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/zmb3/spotify"
 
 	"github.com/jace-ys/spautofy/pkg/accounts"
 	"github.com/jace-ys/spautofy/pkg/playlists"
@@ -38,11 +37,12 @@ func (h *Handler) renderIndex() http.HandlerFunc {
 func (h *Handler) renderAccount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
-			User        *spotify.PrivateUser
-			Frequency   int
-			TrackLimit  int
-			WithConfirm bool
-			Next        time.Time
+			UserID        string
+			UserFirstName string
+			Frequency     int
+			TrackLimit    int
+			WithConfirm   bool
+			Next          time.Time
 		}{
 			WithConfirm: true,
 			TrackLimit:  20,
@@ -63,7 +63,8 @@ func (h *Handler) renderAccount() http.HandlerFunc {
 				return
 			}
 		}
-		data.User = user.PrivateUser
+		data.UserID = user.PrivateUser.ID
+		data.UserFirstName = strings.Split(user.PrivateUser.DisplayName, " ")[0]
 
 		account, err := h.accounts.Get(r.Context(), user.ID)
 		if err != nil {

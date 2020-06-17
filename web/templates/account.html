@@ -1,40 +1,61 @@
 {{ define "account" -}}
 {{ template "header" }}
   <body>
-    <h1>Welcome {{ .User.DisplayName }}</h1>
-    <form action="/accounts/{{ .User.ID }}" method="POST">
-      <div>
-        <label for="frequency">Frequency</label>
-        <select id="frequency" name="frequency">
-          <option value="12"{{ if eq .Frequency 12 }} selected{{ end }}>Every month</option>
-          <option value="4"{{ if eq .Frequency 4 }} selected{{ end }}>Every 3 months</option>
-          <option value="2"{{ if eq .Frequency 2 }} selected{{ end }}>Every 6 months</option>
-          <option value="1"{{ if eq .Frequency 1 }} selected{{ end }}>Every 12 months</option>
-        </select>
-      </div>
-      <div>
-        <label for="limit">Number of tracks</label>
-        <select id="limit" name="limit">
-          <option value="10"{{ if eq .TrackLimit 10 }} selected{{ end }}>10</option>
-          <option value="20"{{ if eq .TrackLimit 20 }} selected{{ end }}>20</option>
-          <option value="30"{{ if eq .TrackLimit 30 }} selected{{ end }}>30</option>
-        </select>
-      </div>
-      <div>
-        <input type="checkbox" id="confirm" name="confirm" value="confirm"{{ if .WithConfirm }}checked{{ end }} />
-        <label for="confirm">Confirmation email</label>
-      </div>
-      <input type="submit" value="Submit" />
-    </form>
-    <div>
-      <a href="/logout">Log out</a>
+    <div id="wrapper">
+      <h2 class="major">Hello {{ .UserFirstName }}.</h2>
+      {{- if not .Next.IsZero }}
+      <h3>Next playlist: {{ .Next.Format "2 Jan 2006" }}</h3>
+      {{- end }}
+      <form action="/accounts/{{ .UserID }}" method="POST">
+        <div class="fields">
+          <div class="field">
+            <label for="frequency">Frequency</label>
+            <select name="frequency" id="frequency">
+              <option value="12"{{ if eq .Frequency 12 }} selected{{ end }}>Every month</option>
+              <option value="4"{{ if eq .Frequency 4 }} selected{{ end }}>Every 3 months</option>
+              <option value="2"{{ if eq .Frequency 2 }} selected{{ end }}>Every 6 months</option>
+              <option value="1"{{ if eq .Frequency 1 }} selected{{ end }}>Every 12 months</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="limit">Number of tracks</label>
+            <select name="limit" id="limit">
+              <option value="10"{{ if eq .TrackLimit 10 }} selected{{ end }}>10</option>
+              <option value="20"{{ if eq .TrackLimit 20 }} selected{{ end }}>20</option>
+              <option value="30"{{ if eq .TrackLimit 30 }} selected{{ end }}>30</option>
+              <option value="40"{{ if eq .TrackLimit 40 }} selected{{ end }}>40</option>
+              <option value="40"{{ if eq .TrackLimit 50 }} selected{{ end }}>50</option>
+            </select>
+          </div>
+          <div class="field">
+            <input type="checkbox" name="confirm" id="confirm" value="confirm"{{ if .WithConfirm }}checked{{ end }}/>
+            <label for="confirm">Send me a confirmation email before creating playlists</label>
+          </div>
+        </div>
+        <ul class="actions">
+          <li>
+            <input type="submit" value="Submit" class="primary" />
+          </li>
+          {{- if not .Next.IsZero }}
+          <li>
+            <a href="/accounts/{{ .UserID }}/unsubscribe" class="button">Unsubscribe</a>
+          </li>
+          {{- end }}
+          <li>
+            <a href="/logout" class="button">Log out</a>
+          </li>
+        </ul>
+      </form>
+      <footer id="footer">
+        <p class="copyright">
+          &copy; Spautofy 2020.
+          <a href="https://github.com/jace-ys/spautofy" target="_blank"
+            >View code on GitHub</a
+          >.
+        </p>
+      </footer>
     </div>
-    {{ if not .Next.IsZero -}}
-    <div>
-      <a href="/accounts/{{ .User.ID }}/unsubscribe">Unsubscribe</a>
-    </div>
-    <h2>Next playlist: {{ .Next.Format "2 Jan 2006" }}</h2>
-    {{- end }}
+    <div id="bg"></div>
   </body>
 {{ template "footer" }}
 {{- end }}

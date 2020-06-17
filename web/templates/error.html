@@ -1,7 +1,18 @@
 {{ define "error" -}}
 {{ template "header" }}
   <body>
-    <h1>{{ .Message }}</h1>
+    <div id="wrapper">
+      <h2>{{ .Message }}</h2>
+      <footer id="footer">
+        <p class="copyright">
+          &copy; Spautofy 2020.
+          <a href="https://github.com/jace-ys/spautofy" target="_blank"
+            >View code on GitHub</a
+          >.
+        </p>
+      </footer>
+    </div>
+    <div id="bg"></div>
   </body>
 {{ template "footer" }}
 {{- end }}

@@ -1,11 +1,18 @@
 {{ define "header" -}}
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Spautofy</title>
-    <link href="https://fonts.googleapis.com/css?family=Nunito+Sans" rel="stylesheet" type="text/css">
-    <link href="/static/css/index.css" rel="stylesheet" type="text/css"/>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+    <meta name="description" content="Automated creation of Spotify playlists based on your recent top tracks.">
+
+    <link rel="icon" type="image/ico" href="/static/images/logo.ico">
+    <link rel="stylesheet" href="/static/css/index.css" />
+
+    <script src="/static/js/jquery.min.js" defer></script>
+    <script src="/static/js/breakpoints.min.js" defer></script>
+    <script src="/static/js/index.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.0-2/js/all.min.js" defer></script>
   </head>
 {{- end }}
