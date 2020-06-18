@@ -77,6 +77,26 @@ func (m *Manager) Create(w http.ResponseWriter, r *http.Request) (*Session, erro
 	return &Session{session}, nil
 }
 
+func (m *Manager) CreateWithValues(w http.ResponseWriter, r *http.Request, values map[interface{}]interface{}) (*Session, error) {
+	session, err := m.store.Get(r, m.name)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range values {
+		session.Values[k] = v
+	}
+
+	session.Values[sessionIDKey{}] = uuid.New().String()
+
+	err = session.Save(r, w)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Session{session}, nil
+}
+
 func (m *Manager) Update(w http.ResponseWriter, r *http.Request, values map[interface{}]interface{}) (*Session, error) {
 	session, err := m.store.Get(r, m.name)
 	if err != nil {

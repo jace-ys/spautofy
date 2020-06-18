@@ -90,7 +90,7 @@ func (h *Handler) router() http.Handler {
 	router.HandleFunc("/login/callback", h.loginCallback())
 	router.HandleFunc("/logout", h.logout())
 
-	accounts := router.PathPrefix("/accounts/{userID:[0-9]+}").Subrouter()
+	accounts := router.PathPrefix("/accounts/{userID}").Subrouter()
 	accounts.Use(h.middlewareAuthenticate, h.middlewareAuthorize)
 	accounts.HandleFunc("", h.renderAccount()).Methods(http.MethodGet)
 	accounts.HandleFunc("", h.updateAccount()).Methods(http.MethodPost)

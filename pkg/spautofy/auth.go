@@ -2,6 +2,7 @@ package spautofy
 
 import (
 	"context"
+	"encoding/gob"
 	"net/http"
 	"path"
 
@@ -11,6 +12,11 @@ import (
 	"github.com/jace-ys/spautofy/pkg/users"
 )
 
+func init() {
+	gob.Register(userIDKey{})
+	gob.Register(requestPathKey{})
+}
+
 var (
 	scopes = []string{
 		spotify.ScopeUserReadEmail,
@@ -19,15 +25,28 @@ var (
 	}
 )
 
+type userIDKey struct{}
+
+type requestPathKey struct{}
+
 func (h *Handler) loginRedirect() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		h.logger.Log("event", "login.started")
 
-		session, err := h.sessions.Create(w, r)
+		session, err := h.sessions.Get(r)
 		if err != nil {
 			h.logger.Log("event", "login.failed", "error", err)
 			h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
 			return
+		}
+
+		if session.IsNew {
+			session, err = h.sessions.Create(w, r)
+			if err != nil {
+				h.logger.Log("event", "login.failed", "error", err)
+				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+				return
+			}
 		}
 
 		http.Redirect(w, r, h.authenticator.AuthURL(session.GetID()), http.StatusFound)
@@ -66,9 +85,8 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
-		values := map[interface{}]interface{}{
-			"userID": userID,
-		}
+		values := make(map[interface{}]interface{})
+		values[userIDKey{}] = userID
 
 		session, err = h.sessions.Update(w, r, values)
 		if err != nil {
@@ -77,7 +95,15 @@ func (h *Handler) loginCallback() http.HandlerFunc {
 			return
 		}
 
-		w.Header().Set("Location", path.Join("/accounts", spotifyUser.ID))
+		var location string
+		requestPath, ok := session.Values[requestPathKey{}].(string)
+		if ok {
+			location = requestPath
+		} else {
+			location = path.Join("/accounts", spotifyUser.ID)
+		}
+
+		w.Header().Set("Location", location)
 		w.WriteHeader(http.StatusFound)
 
 		h.logger.Log("event", "login.finished", "session", session.GetID(), "user", userID)
@@ -101,8 +127,6 @@ func (h *Handler) logout() http.HandlerFunc {
 	}
 }
 
-type userIDKey struct{}
-
 func (h *Handler) middlewareAuthenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := h.sessions.Get(r)
@@ -112,8 +136,18 @@ func (h *Handler) middlewareAuthenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		userID, ok := session.Values["userID"].(string)
+		userID, ok := session.Values[userIDKey{}].(string)
 		if !ok {
+			values := make(map[interface{}]interface{})
+			values[requestPathKey{}] = r.URL.Path
+
+			session, err = h.sessions.CreateWithValues(w, r, values)
+			if err != nil {
+				h.logger.Log("event", "authenticate.failed", "error", err)
+				h.renderError(http.StatusInternalServerError).ServeHTTP(w, r)
+				return
+			}
+
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
