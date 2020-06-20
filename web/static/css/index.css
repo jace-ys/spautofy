@@ -102,6 +102,10 @@ a:hover {
   border-bottom-color: transparent;
 }
 
+a.cc-link {
+  border-bottom: none;
+}
+
 strong,
 b {
   color: #ffffff;
@@ -228,6 +232,7 @@ form > .fields {
 }
 
 form > .fields > .field {
+  text-align: left;
   -moz-flex-grow: 0;
   -webkit-flex-grow: 0;
   -ms-flex-grow: 0;
