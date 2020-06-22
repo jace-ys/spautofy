@@ -12,6 +12,7 @@ require (
 	github.com/gorilla/sessions v1.2.0
 	github.com/jace-ys/go-library v0.0.0-20200614003242-116803f3acbb
 	github.com/jmoiron/sqlx v1.2.0
+	github.com/kevinburke/go-bindata v3.21.0+incompatible // indirect
 	github.com/lib/pq v1.7.0
 	github.com/prometheus/client_golang v1.3.0
 	github.com/robfig/cron/v3 v3.0.1

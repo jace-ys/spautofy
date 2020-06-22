@@ -15,9 +15,6 @@ jobs:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-spautofy-${{ hashFiles('go.sum') }}
           restore-keys: ${{ runner.os }}-spautofy-
-      - name: Setup
-        run: |
-          GO111MODULE=off go get github.com/kevinburke/go-bindata/......
       - name: Inject environment
         run: touch .env
       - name: Install dependencies
