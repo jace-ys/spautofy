@@ -10,7 +10,7 @@ import (
 )
 
 type Mailer interface {
-	SendNewPlaylistEmail(user *users.User, withConfirm bool, playlistURL string) error
+	SendNewPlaylistEmail(user *users.User, withConfirm bool, playlistURL, unsubscribeURL string) error
 }
 
 type SendGridConfig struct {
@@ -36,7 +36,7 @@ func NewSendGridMailer(cfg *SendGridConfig) *SendGridMailer {
 	}
 }
 
-func (m *SendGridMailer) SendNewPlaylistEmail(user *users.User, withConfirm bool, playlistURL string) error {
+func (m *SendGridMailer) SendNewPlaylistEmail(user *users.User, withConfirm bool, playlistURL, unsubscribeURL string) error {
 	email := mail.NewV3Mail()
 
 	p := mail.NewPersonalization()
@@ -57,6 +57,7 @@ func (m *SendGridMailer) SendNewPlaylistEmail(user *users.User, withConfirm bool
 	p.SetDynamicTemplateData("firstName", firstName)
 	p.SetDynamicTemplateData("withConfirm", withConfirm)
 	p.SetDynamicTemplateData("playlistLink", playlistURL)
+	p.SetDynamicTemplateData("unsubscribe", unsubscribeURL)
 
 	_, err := m.client.Send(email)
 	if err != nil {

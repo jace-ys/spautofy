@@ -134,9 +134,12 @@ func (b *Builder) Run(trackLimit int, withConfirm bool) func() {
 			playlistURL = playlist.SpotifyURL
 		}
 
+		accountURL := *b.baseURL
+		accountURL.Path = path.Join(accountURL.Path, "accounts", b.user.ID)
+
 		b.logger.Log("event", "playlist.build.finished", "id", id)
 
-		err = b.mailer.SendNewPlaylistEmail(b.user, withConfirm, playlistURL)
+		err = b.mailer.SendNewPlaylistEmail(b.user, withConfirm, playlistURL, accountURL.String())
 		if err != nil {
 			b.logger.Log("event", "email.send.failed", "error", err)
 			return
