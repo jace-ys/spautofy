@@ -46,4 +46,4 @@ test:
 
 format:
 	@echo "==> Formatting code.."
-	gofmt -w .
+	go fmt ./...

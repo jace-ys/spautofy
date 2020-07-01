@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT UNIQUE NOT NULL,
+  id TEXT NOT NULL,
   email TEXT NOT NULL,
   display_name TEXT NOT NULL,
   access_token TEXT NOT NULL,

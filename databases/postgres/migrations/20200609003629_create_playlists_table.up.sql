@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS playlists (
   id TEXT UNIQUE,
-  name TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
   user_id TEXT NOT NULL,
   description TEXT NOT NULL,
   tracks TEXT[] NOT NULL,

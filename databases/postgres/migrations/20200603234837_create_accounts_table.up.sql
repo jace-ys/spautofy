@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS accounts (
-  user_id TEXT UNIQUE NOT NULL,
+  user_id TEXT NOT NULL,
   schedule TEXT NOT NULL,
   track_limit INTEGER NOT NULL,
   with_confirm BOOLEAN,

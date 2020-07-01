@@ -7,7 +7,7 @@
 
 Automated creation of Spotify playlists based on your recent top tracks. Check it out at https://spautofy.herokuapp.com.
 
-## Requirements
+## Prerequisites 
 
 - go
 - [go-bindata](https://github.com/kevinburke/go-bindata)

@@ -15,25 +15,28 @@ jobs:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-spautofy-${{ hashFiles('go.sum') }}
           restore-keys: ${{ runner.os }}-spautofy-
+
       - name: Inject environment
         run: touch .env
+
       - name: Install dependencies
         run: go mod download
+
       - name: Verify assets
         run: |
-          make assets && git add -N .
-          if ! git diff --exit-code --name-only; then
-            echo "> Generated code not up to date"
-            exit 1
-          fi
+          make assets
+          git add -N . && git diff --exit-code --name-only
+
       - name: Lint
         run: |
-          if [[ -n "$(gofmt -l .)" ]]; then
-            exit 1
-          fi
+          make format
+          git diff --exit-code --name-only
+
       - name: Run tests
         run: make test
+
       - name: Build binary
         run: make build
+
       - name: Build image
         run: make image
