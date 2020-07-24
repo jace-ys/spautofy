@@ -2,4 +2,6 @@
 
 package tools
 
-import _ "github.com/kevinburke/go-bindata"
+import (
+	_ "github.com/kevinburke/go-bindata"
+)

@@ -4,10 +4,10 @@ import (
 	"context"
 	"os"
 
-	"github.com/alecthomas/kingpin"
 	"github.com/go-kit/kit/log"
 	"github.com/jace-ys/go-library/postgres"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/jace-ys/spautofy/pkg/spautofy"
 )
