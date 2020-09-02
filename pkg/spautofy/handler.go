@@ -197,6 +197,7 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 		return 0, err
 	}
 
+	var loaded int
 	for idx, schedule := range schedules {
 		account, err := h.accounts.Get(ctx, schedule.UserID)
 		if err != nil {
@@ -205,7 +206,8 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 
 		builder, err := h.builder.NewBuilder(ctx, h.logger, account.UserID)
 		if err != nil {
-			return idx, err
+			// skip as the user might have revoked access to their account
+			continue
 		}
 
 		schedule.Spec = account.Schedule
@@ -215,9 +217,11 @@ func (h *Handler) loadSchedules(ctx context.Context) (int, error) {
 		if err != nil {
 			return idx, err
 		}
+
+		loaded++
 	}
 
-	return len(schedules), nil
+	return loaded, nil
 }
 
 func (h *Handler) Shutdown(ctx context.Context) error {
