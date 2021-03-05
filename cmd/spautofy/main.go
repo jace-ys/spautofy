@@ -23,7 +23,7 @@ func main() {
 	logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 
-	postgres, err := postgres.NewClient(c.database.ConnectionURL)
+	postgres, err := postgres.NewClient(c.database.connectionURL)
 	if err != nil {
 		exit(err)
 	}
@@ -59,7 +59,9 @@ type config struct {
 	port        int
 	metricsPort int
 	spautofy    spautofy.Config
-	database    postgres.ClientConfig
+	database    struct {
+		connectionURL string
+	}
 }
 
 func parseCommand() *config {
@@ -75,7 +77,7 @@ func parseCommand() *config {
 	kingpin.Flag("sendgrid-sender-name", "Name to use when sending mail via SendGrid.").Envar("SENDGRID_SENDER_NAME").Required().StringVar(&c.spautofy.SendGrid.SenderName)
 	kingpin.Flag("sendgrid-sender-email", "Email to use when sending mail via SendGrid.").Envar("SENDGRID_SENDER_EMAIL").Required().StringVar(&c.spautofy.SendGrid.SenderEmail)
 	kingpin.Flag("sendgrid-template-id", "Template ID to use when sending mail via SendGrid.").Envar("SENDGRID_TEMPLATE_ID").Required().StringVar(&c.spautofy.SendGrid.TemplateID)
-	kingpin.Flag("database-url", "URL for connecting to Postgres.").Envar("DATABASE_URL").Default("postgres://spautofy:spautofy@127.0.0.1:5432/spautofy").StringVar(&c.database.ConnectionURL)
+	kingpin.Flag("database-url", "URL for connecting to Postgres.").Envar("DATABASE_URL").Default("postgres://spautofy:spautofy@127.0.0.1:5432/spautofy").StringVar(&c.database.connectionURL)
 	kingpin.Parse()
 
 	return &c

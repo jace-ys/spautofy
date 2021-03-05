@@ -1,6 +1,7 @@
 package spautofy
 
 import (
+	"embed"
 	"errors"
 	"html/template"
 	"net/http"
@@ -13,18 +14,16 @@ import (
 	"github.com/jace-ys/spautofy/pkg/playlists"
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/users"
-	"github.com/jace-ys/spautofy/pkg/web/templates"
 )
 
-var tmpls *template.Template
+var (
+	//go:embed templates/*
+	templateFS embed.FS
+	tmpls      *template.Template
+)
 
 func init() {
-	assets := make([]string, len(templates.AssetNames()))
-	for idx, name := range templates.AssetNames() {
-		assets[idx] = string(templates.MustAsset(name))
-	}
-
-	tmpls = template.Must(template.New("tmpls").Parse(strings.Join(assets, "")))
+	tmpls = template.Must(template.New("tmpls").ParseFS(templateFS, "**/*.html", "**/**/*.html"))
 }
 
 func (h *Handler) renderIndex() http.HandlerFunc {

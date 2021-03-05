@@ -1,17 +1,15 @@
 module github.com/jace-ys/spautofy
 
-go 1.14
+go 1.16
 
 require (
-	github.com/elazarl/go-bindata-assetfs v1.0.1
 	github.com/etherlabsio/healthcheck v0.0.0-20191224061800-dd3d2fd8c3f6
 	github.com/go-kit/kit v0.10.0
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/sessions v1.2.1
-	github.com/jace-ys/go-library v0.0.0-20200805050738-a0c83825d460
+	github.com/jace-ys/go-library v0.0.0-20210305125756-4c2ed7fd6f55
 	github.com/jmoiron/sqlx v1.2.0
-	github.com/kevinburke/go-bindata v3.21.0+incompatible
 	github.com/lib/pq v1.8.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/robfig/cron/v3 v3.0.1

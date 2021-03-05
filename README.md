@@ -1,16 +1,15 @@
 [![spautofy-badge]][spautofy-workflow]
 
-[spautofy-badge]: https://github.com/jace-ys/spautofy/workflows/spautofy/badge.svg
-[spautofy-workflow]: https://github.com/jace-ys/spautofy/actions?query=workflow%3Aspautofy
+[spautofy-badge]: https://github.com/jace-ys/spautofy/workflows/ci/badge.svg
+[spautofy-workflow]: https://github.com/jace-ys/spautofy/actions?query=workflow%3Aci
 
 # Spautofy
 
 Automated creation of Spotify playlists based on your recent top tracks. Check it out at https://spautofy.herokuapp.com.
 
-## Prerequisites 
+## Prerequisites
 
 - go
-- [go-bindata](https://github.com/kevinburke/go-bindata)
 - docker, docker-compose
 
 ## Usage
@@ -30,12 +29,6 @@ SENDGRID_TEMPLATE_ID=
 
 ```
 make dependencies
-```
-
-3. Compile web assets:
-
-```
-make assets
 ```
 
 4. Run the Spautofy server:
@@ -68,4 +61,4 @@ Spautofy is automatically deployed to Heroku on push to master, after Continuous
 
 Heroku resources are provisioned via Terraform located in [deployment/terraform](https://github.com/jace-ys/spautofy/tree/master/deployment/terraform).
 
-[cron-job.org](https://cron-job.org/en) is used to ping the Spautofy server every 15 mins to keep the web process alive round the clock.
+[cron-job.org](https://cron-job.org/en) is used to ping the Spautofy server every day at midnight to wake the scheduler for executing cronjobs.

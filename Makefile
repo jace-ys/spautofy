@@ -1,12 +1,12 @@
-include .env
+-include .env
 
 TARGET = spautofy
 SOURCE = cmd/spautofy/main.go
 DEPENDENCIES = postgres postgres.init
 
-.PHONY: default run build assets image dependencies test format
+.PHONY: default run build image dependencies test format
 
-default: assets format run
+default: format run
 
 run:
 	@echo "==> Executing code.."
@@ -26,11 +26,6 @@ run:
 build:
 	@echo "==> Compiling code.."
 	go build -o ${TARGET} ${SOURCE}
-
-assets:
-	@echo "==> Generating assets.."
-	go run github.com/kevinburke/go-bindata/go-bindata -modtime 1234567890 -o pkg/web/templates/assets.go -prefix web -pkg templates web/templates/...
-	go run github.com/kevinburke/go-bindata/go-bindata -modtime 1234567890 -o pkg/web/static/assets.go -prefix web -pkg static web/static/...
 
 image:
 	@echo "==> Building image.."

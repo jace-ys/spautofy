@@ -2,6 +2,7 @@ package spautofy
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"path"
 	"time"
 
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/etherlabsio/healthcheck"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
@@ -23,8 +23,10 @@ import (
 	"github.com/jace-ys/spautofy/pkg/scheduler"
 	"github.com/jace-ys/spautofy/pkg/sessions"
 	"github.com/jace-ys/spautofy/pkg/users"
-	"github.com/jace-ys/spautofy/pkg/web/static"
 )
+
+//go:embed static
+var staticFS embed.FS
 
 type Config struct {
 	BaseURL         *url.URL
@@ -82,8 +84,7 @@ func NewHandler(logger log.Logger, cfg *Config, postgres *postgres.Client) *Hand
 func (h *Handler) router() http.Handler {
 	router := mux.NewRouter()
 
-	staticAssets := &assetfs.AssetFS{Asset: static.Asset, AssetDir: static.AssetDir, AssetInfo: static.AssetInfo}
-	router.PathPrefix("/static").Handler(http.FileServer(staticAssets))
+	router.PathPrefix("/static").Handler(http.FileServer(http.FS(staticFS)))
 
 	router.HandleFunc("/", h.renderIndex()).Methods(http.MethodGet)
 	router.HandleFunc("/login", h.loginRedirect())
